@@ -1,4 +1,4 @@
-# Wi-Fi-Audio-Demo
+# nordic_wifi_audio_demo
 A demo for Wi-Fi Audio based on nRF5340 Audio DK + nRF7002 EK
 
 # Hardware
