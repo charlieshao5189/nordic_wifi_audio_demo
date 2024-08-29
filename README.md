@@ -29,13 +29,13 @@ west build -p -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild -- -DSHIELD=nrf7002e
 Build nRF5340 Audio Unicast Client (CIS Gateway Mode):
 
 ```
-west build -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild --pristine -d build_unicast_client_tx  -- -DCONFIG_AUDIO_DEV=1
+west build -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild --pristine -d build_unicast_client_tx  -- -DCONFIG_AUDIO_DEV=2
 ```
 
 Build nRF5340 Audio Unicast Server (CIS Headset Mode):
 
 ```
-west build -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild --pristine -d build_unicast_client_rx  -- -DCONFIG_AUDIO_DEV=2
+west build -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild --pristine -d build_unicast_client_rx  -- -DCONFIG_AUDIO_DEV=1
 ```
 
 # To-do-Tasks
