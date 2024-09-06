@@ -1,0 +1,239 @@
+#
+# Copyright (c) 2022 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+source "Kconfig.zephyr"
+
+#----------------------------------------------------------------------------#
+menu "Wi-Fi"
+
+endmenu
+
+menu "Audio"
+
+config AUDIO_SYNC_TIMER_USES_RTC
+	bool
+	default y
+	select NRFX_RTC0
+
+choice AUDIO_FRAME_DURATION
+	prompt "Select frame duration - 7.5 ms frame duration is not tested"
+	default AUDIO_FRAME_DURATION_10_MS
+	help
+	  LC3 supports frame duration of 7.5 and 10 ms.
+	  If USB is selected as audio source, we should
+	  have a frame duration of 10 ms since USB sends 1ms at a time.
+
+config AUDIO_FRAME_DURATION_7_5_MS
+	bool "7.5 ms"
+
+config AUDIO_FRAME_DURATION_10_MS
+	bool "10 ms"
+endchoice
+
+config AUDIO_FRAME_DURATION_US
+	int
+	default 7500 if AUDIO_FRAME_DURATION_7_5_MS
+	default 10000 if AUDIO_FRAME_DURATION_10_MS
+	help
+	  Audio frame duration in µs.
+
+config AUDIO_MIN_PRES_DLY_US
+	int "The minimum presentation delay"
+	default 5000 if STREAM_BIDIRECTIONAL
+	default 3000
+	help
+	  The minimum allowable presentation delay in microseconds.
+	  This needs to allow time for decoding and internal routing.
+	  For 48kHz sampling rate and 96kbps bitrate this is about 4000 us.
+
+config AUDIO_MAX_PRES_DLY_US
+	int "The maximum presentation delay"
+	default 60000
+	help
+	  The maximum allowable presentation delay in microseconds.
+	  Increasing this will also increase the FIFO buffers to allow buffering.
+
+choice AUDIO_SYSTEM_SAMPLE_RATE
+	prompt "System audio sample rate"
+	default AUDIO_SAMPLE_RATE_16000_HZ if BT_BAP_BROADCAST_16_2_1
+	default AUDIO_SAMPLE_RATE_16000_HZ if BT_BAP_BROADCAST_16_2_2
+	default AUDIO_SAMPLE_RATE_16000_HZ if BT_BAP_UNICAST_16_2_1
+	default AUDIO_SAMPLE_RATE_24000_HZ if BT_BAP_BROADCAST_24_2_1
+	default AUDIO_SAMPLE_RATE_24000_HZ if BT_BAP_BROADCAST_24_2_2
+	default AUDIO_SAMPLE_RATE_24000_HZ if BT_BAP_UNICAST_24_2_1
+	default AUDIO_SAMPLE_RATE_48000_HZ
+	help
+	  This configuration reflects the system sample rate, but the audio data may be resampled to
+	  another sample rate before encoding, and after decoding.
+
+config AUDIO_SAMPLE_RATE_16000_HZ
+	bool "16 kHz"
+	help
+	  Sample rate of 16kHz is currently only valid for I2S/line-in.
+
+config AUDIO_SAMPLE_RATE_24000_HZ
+	bool "24 kHz"
+	help
+	  Sample rate of 24kHz is currently only valid for I2S/line-in.
+
+config AUDIO_SAMPLE_RATE_48000_HZ
+	bool "48 kHz"
+	help
+	  Sample rate of 48kHz is valid for both I2S/line-in and USB.
+endchoice
+
+config AUDIO_SAMPLE_RATE_HZ
+	int
+	default 16000 if AUDIO_SAMPLE_RATE_16000_HZ
+	default 24000 if AUDIO_SAMPLE_RATE_24000_HZ
+	default 48000 if AUDIO_SAMPLE_RATE_48000_HZ
+	help
+	  I2S supports 16, 24, and 48 kHz sample rates for both input and output.
+	  USB supports only 48 kHz for input.
+
+choice AUDIO_BIT_DEPTH
+	prompt "Audio bit depth"
+	default AUDIO_BIT_DEPTH_16
+	help
+	  Select the bit depth for audio.
+
+config AUDIO_BIT_DEPTH_16
+	bool "16 bit audio"
+
+config AUDIO_BIT_DEPTH_32
+	bool "32 bit audio"
+endchoice
+
+config AUDIO_BIT_DEPTH_BITS
+	int
+	default 16 if AUDIO_BIT_DEPTH_16
+	default 32 if AUDIO_BIT_DEPTH_32
+	help
+	  Bit depth of one sample in storage.
+
+config AUDIO_BIT_DEPTH_OCTETS
+	int
+	default 2 if AUDIO_BIT_DEPTH_16
+	default 4 if AUDIO_BIT_DEPTH_32
+	help
+	  Bit depth of one sample in storage given in octets.
+
+choice AUDIO_SOURCE_GATEWAY
+	prompt "Audio source for gateway"
+	default AUDIO_SOURCE_I2S if WALKIE_TALKIE_DEMO
+	default AUDIO_SOURCE_USB
+	help
+	  Select audio source for the gateway.
+
+config AUDIO_SOURCE_USB
+	bool "Use USB as audio source"
+	help
+	  Set USB as audio source. Note that this forces the
+	  stream to be unidirectional because of CPU load.
+
+config AUDIO_SOURCE_I2S
+	bool "Use I2S as audio source"
+endchoice
+
+choice AUDIO_HEADSET_CHANNEL
+	prompt "Headset audio channel assignment"
+	default AUDIO_HEADSET_CHANNEL_RUNTIME
+	help
+	  Set whether audio channel assignment for the headset
+	  should happen at runtime or compile-time.
+
+config AUDIO_HEADSET_CHANNEL_RUNTIME
+	bool "Select at runtime"
+	help
+	  Make channel selection at runtime. Selected value is stored in persistent memory.
+	  Left channel: Hold volume-down button on headset while resetting headset.
+	  Right channel: Hold volume-up button on headset while resetting headset.
+
+config AUDIO_HEADSET_CHANNEL_COMPILE_TIME
+	bool "Set at compile-time"
+	help
+	  Set channel selection at compile-time.
+endchoice
+
+config AUDIO_TEST_TONE
+	bool "Test tone instead of doing user defined action"
+	select TONE
+	default y
+	help
+	  Use button 4 to set a test tone
+	  instead of doing a user defined action.
+	  The test tone is generated on the device itself.
+
+config AUDIO_MUTE
+	bool "Mute instead of doing user defined action"
+	default y
+	help
+	  Use button 5 to mute audio instead of
+	  doing a user defined action.
+
+if AUDIO_HEADSET_CHANNEL_COMPILE_TIME
+
+config AUDIO_HEADSET_CHANNEL
+	int "Audio channel used by headset"
+	range 0 1
+	default 0
+	help
+	  Audio channel compile-time selection.
+	  Left = 0.
+	  Right = 1.
+
+endif # AUDIO_HEADSET_CHANNEL_COMPILE_TIME
+
+endmenu # Audio
+
+#----------------------------------------------------------------------------#
+menu "I2S"
+
+config I2S_LRCK_FREQ_HZ
+	int
+	default AUDIO_SAMPLE_RATE_HZ
+	help
+	 The sample rate of I2S. For now this is tied directly to
+	 AUDIO_SAMPLE_RATE_HZ
+	 Note that this setting is only valid in I2S master mode.
+
+config I2S_CH_NUM
+	int
+	default 2
+	help
+	 The I2S driver itself supports both mono and stereo.
+	 Parts of the implementation are configured for only stereo.
+
+endmenu # I2S
+
+#----------------------------------------------------------------------------#
+menu "Log levels"
+
+module = AUDIO_SYSTEM
+module-str = audio-system
+source "subsys/logging/Kconfig.template.log_config"
+
+module = SW_CODEC_SELECT
+module-str = sw-codec-select
+source "subsys/logging/Kconfig.template.log_config"
+
+module = STREAMCTRL
+module-str = streamctrl
+source "subsys/logging/Kconfig.template.log_config"
+
+module = AUDIO_DATAPATH
+module-str = audio-datapath
+source "subsys/logging/Kconfig.template.log_config"
+
+module = AUDIO_SYNC_TIMER
+module-str = audio-sync-timer
+source "subsys/logging/Kconfig.template.log_config"
+
+module = LE_AUDIO_RX
+module-str = le-audio-rx
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # Log levels
