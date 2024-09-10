@@ -5,14 +5,32 @@
  */
 
 /** @file
- * @brief WiFi station sample
+ * @brief WiFi Transceiver
  */
 
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(audioplayer, CONFIG_LOG_DEFAULT_LEVEL);
+#define MODULE main
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(MODULE, CONFIG_MAIN_LOG_LEVEL);
+#include "streamctrl.h"
+
+static enum stream_state strm_state = STATE_PAUSED;
+
+uint8_t stream_state_get(void)
+{
+	return strm_state;
+}
+
+void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
+{
+	ARG_UNUSED(data);
+	ARG_UNUSED(size);
+	ARG_UNUSED(num_ch);
+
+	LOG_WRN("Sending is not possible for broadcast sink");
+}
 
 int main(void)
 {
-        LOG_INF("WiFi Audio Player start");
+        LOG_INF("WiFi Audio Transceiver Start!");
 }

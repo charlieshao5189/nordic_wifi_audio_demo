@@ -1,0 +1,30 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+#----------------------------------------------------------------------------#
+rsource "Kconfig.defaults"
+
+#----------------------------------------------------------------------------#
+menu "Soket Utility Module"
+
+choice SOCKET_TYPE
+	prompt "Choose socket type used for data transmission"
+	default USE_UDP_SOCKET
+
+config USE_UDP_SOCKET
+	bool "Use UDP Socket for data tramsission"
+
+config USE_TCP_SOCKET
+	bool "Use TCP Socket for data transmission"
+
+endchoice # AUDIO_STREAM_ROL
+
+endmenu # "Audio Stream Transceiver"
+
+#----------------------------------------------------------------------------#
+module = SOCKET_UTIL_MODULE
+module-str = socket utility module
+source "subsys/logging/Kconfig.template.log_config"

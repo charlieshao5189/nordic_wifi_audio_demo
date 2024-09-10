@@ -6,41 +6,57 @@
 
 cmake_minimum_required(VERSION 3.20.0)
 
+# Flag which defines whether application is compiled as gateway/dongle or headset
+add_compile_definitions(HEADSET=1)
+add_compile_definitions(GATEWAY=2)
+
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(nrf_wifi_audio_player)
 
-FILE(GLOB net_sources src/net/*.c)
-FILE(GLOB audio_sources 
-        src/audio/*.c
-        src/audio/opus-1.2.1/*.c
-        src/audio/libc_opus/*.c
-        )
+project(wifi_audio_transceiver)
 
-message("showwwwwww audio_sources:")
-message("${audio_sources}")
+string(TIMESTAMP NRF5340_WIFI_AUDIO_COMP_DATE "%a %b %d %H:%M:%S %Y")
 
-if (CONFIG_NRF700X_AP_MODE)
-        list(FILTER net_sources EXCLUDE REGEX ".*wifi_station_mode\\.c$")
-else()
-        list(FILTER net_sources EXCLUDE REGEX ".*wifi_softap_mode\\.c$")
-endif()
+# Generate fw_info_app.c
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
+               "${CMAKE_BINARY_DIR}/fw_info_app.c"
+               @ONLY)
+
+# Target sources below are specific to the nRF5340 Audio DK HW
+target_sources(app PRIVATE
+    ${CMAKE_BINARY_DIR}/fw_info_app.c
+    )
 
 target_sources(app PRIVATE
         src/main.c
-        ${net_sources}
-        ${audio_sources}
         )
-
 target_include_directories(app PRIVATE 
         src
-        src/net
         src/audio
-        src/audio/opus-1.2.1
-        src/audio/libc_opus
+        src/net
+        src/drivers
+        src/modules
+        src/utils
+        src/utils/macros
+        ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340
         )
 
-target_include_directories(app PUBLIC ${ZEPHYR_BASE}/subsys/net/ip)
+add_subdirectory(src/audio)
+add_subdirectory(src/net)
+add_subdirectory(src/drivers)
+add_subdirectory(src/modules)
+add_subdirectory(src/utils)
 
+## Cirrus Logic
+if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
+    if (ZEPHYR_CIRRUS_LOGIC_MODULE_DIR)
+        add_subdirectory(${ZEPHYR_CIRRUS_LOGIC_MODULE_DIR} cirrus_logic_bin_dir)
+    else()
+        message(FATAL_ERROR "Cirrus Logic/sdk-mcu-drivers repository not found\n")
+    endif()
+endif()
+
+
+# For Opus building
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
  -DARM_MATH_CM4 \
  -DDISABLE_FLOAT_API \

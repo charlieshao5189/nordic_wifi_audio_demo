@@ -3,8 +3,11 @@
  *
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
+
+#define MODULE socket_utility_module
+
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(socket_util, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(MODULE, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 
 #include <errno.h>
 #include <stddef.h>
@@ -15,7 +18,6 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_LOG_DEFAULT_LEVEL);
 #include <zephyr/net/socket.h>
 /* Macro called upon a fatal error, reboots the device. */
 #include <zephyr/sys/reboot.h>
-#include <dk_buttons_and_leds.h>
 #include <zephyr/logging/log_ctrl.h>
 #include "socket_util.h"
 
@@ -34,12 +36,6 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_LOG_DEFAULT_LEVEL);
 //#define pc_port  60000
 #define socket_port 60010 // use for either udp or tcp server
 
-
-/**********External Resources START**************/
-extern int wifi_station_mode_ready(void);
-extern int wifi_softap_mode_ready(void);
-/**********External Resources END**************/
-
 int udp_socket;
 int tcp_server_listen_fd;
 int tcp_server_socket;
@@ -50,16 +46,16 @@ char pc_addr_str[32];
 struct sockaddr_in pc_addr;
 socklen_t pc_addr_len=sizeof(pc_addr);
 
-/* Define the semaphore wifi_net_ready */
-struct k_sem wifi_net_ready;
-enum wifi_modes wifi_mode=WIFI_STATION_MODE;
+/* Define the semaphore net_connect_ready */
+struct k_sem net_connect_ready;
 
 uint8_t socket_recv_buf[BUFFER_MAX_SIZE];
 K_MSGQ_DEFINE(socket_recv_queue, sizeof(socket_recv_buf), 1, 4);
 
-static net_util_socket_rx_callback_t socket_rx_cb = 0; 
+static socket_rx_callback_t socket_rx_cb = 0; 
+static network_ready_callback_t network_ready_cb = 0; 
 
-void net_util_set_callback(net_util_socket_rx_callback_t socket_rx_callback)
+void set_socket_rx_callback(socket_rx_callback_t socket_rx_callback)
 {
 	socket_rx_cb = socket_rx_callback;
 	// If any messages are waiting in the queue, forward them immediately
@@ -67,6 +63,11 @@ void net_util_set_callback(net_util_socket_rx_callback_t socket_rx_callback)
 	while (k_msgq_get(&socket_recv_queue, buf, K_NO_WAIT) == 0) {
 		socket_rx_cb(buf, 6);
 	}
+}
+
+void set_network_ready_callback(network_ready_callback_t network_ready_callback)
+{
+	network_ready_cb = network_ready_callback;
 }
 
 uint8_t process_socket_rx(char *socket_rx_buf, char *command_buf)
@@ -106,7 +107,7 @@ static void trigger_socket_rx_callback_if_set()
 
 
 void socket_tx(const void *buf, size_t len){
-		#if defined(CONFIG_SAMPLE_SCOKET_TCP)
+		#if defined(USE_TCP_SOCKET)
 			if (send(tcp_server_socket, buf, len, 0) == -1) {
 				perror("Sending failed");
 				close(tcp_server_socket);
@@ -118,28 +119,18 @@ void socket_tx(const void *buf, size_t len){
 		#endif
 }
 
-/* Thread to setup WiFi, Network, Sockets step by step */
-static void wifi_net_sockets(void)
+/* Thread to setup Network and Socket connection step by step */
+static void net_sockets(void)
 {
 	int ret;
 	ssize_t bytes_recived;
 
-	k_sem_init(&wifi_net_ready, 0, 1);
+	k_sem_init(&net_connect_ready, 0, 1);
 
-	if (dk_leds_init() != 0)
-	{
-		LOG_ERR("Failed to initialize the LED library");
-	}
-
-        #if defined(CONFIG_NRF700X_AP_MODE)
-                ret = wifi_softap_mode_ready();
-        #else
-                ret = wifi_station_mode_ready();
-        #endif
-        
+        ret = network_ready_cb();
 	if (ret < 0)
 	{
-		LOG_ERR("wifi network connection is not ready, error: %d", -errno);
+		LOG_ERR("Network connection is not ready, error: %d", -errno);
 		FATAL_ERROR();
 		return;
 	}
@@ -148,7 +139,7 @@ static void wifi_net_sockets(void)
 	cam_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	cam_addr.sin_port = htons(socket_port);
 
-	#if defined(CONFIG_SAMPLE_SCOKET_TCP)
+	#if defined(USE_TCP_SOCKET)
 		tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		
 		if (tcp_server_listen_fd < 0)
@@ -184,7 +175,7 @@ static void wifi_net_sockets(void)
 			}
 			LOG_INF("Accepted connection from client\n");
 			inet_ntop(pc_addr.sin_family, &pc_addr.sin_addr, pc_addr_str, sizeof(pc_addr_str));
-			LOG_INF("Connect with PC through WiFi, PC IPAddr = %s, Port = %d\n", pc_addr_str, ntohs(pc_addr.sin_port));
+			LOG_INF("Connect socket client to IP Address %s:%d\n", pc_addr_str, ntohs(pc_addr.sin_port));
 			// Handle the client connection
 			while((bytes_recived = recv(tcp_server_socket, socket_recv_buf, sizeof(socket_recv_buf),0))>0){
 				trigger_socket_rx_callback_if_set(socket_recv_buf);
@@ -216,7 +207,7 @@ static void wifi_net_sockets(void)
 		while((bytes_recived = recvfrom(udp_socket, socket_recv_buf, sizeof(socket_recv_buf), 0, (struct sockaddr *)&pc_addr, &pc_addr_len))>0){
 			if(socket_connected == false){
 				inet_ntop(pc_addr.sin_family, &pc_addr.sin_addr, pc_addr_str, sizeof(pc_addr_str));
-				LOG_INF("Connect with PC through WiFi, PC IPAddr = %s, Port = %d\n", pc_addr_str, ntohs(pc_addr.sin_port));
+				LOG_INF("Connect socket client to IP Address %s:%d\n", pc_addr_str, ntohs(pc_addr.sin_port));
 				socket_connected=true;
 			}
 			trigger_socket_rx_callback_if_set(socket_recv_buf);
@@ -233,5 +224,5 @@ static void wifi_net_sockets(void)
 	#endif
 }
 
-K_THREAD_DEFINE(wifi_net_sockets_id, STACKSIZE, wifi_net_sockets, NULL, NULL, NULL,
+K_THREAD_DEFINE(net_sockets_id, STACKSIZE, net_sockets, NULL, NULL, NULL,
 				PRIORITY, 0, 0);

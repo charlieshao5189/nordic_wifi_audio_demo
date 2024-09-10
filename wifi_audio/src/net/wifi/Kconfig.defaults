@@ -1,0 +1,45 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+#----------------------------------------------------------------------------#
+# # Wi-Fi
+config WIFI
+ 	default y
+config WIFI_NRF700X
+ 	default y
+
+# # WPA supplicant
+config WPA_SUPP
+ 	default y
+
+# Station Mode
+# Configure the Wi-Fi credentials
+config WIFI_CREDENTIALS
+ 	default y
+config WIFI_CREDENTIALS_STATIC
+ 	default n
+# config WIFI_CREDENTIALS_BACKEND_SETTINGS
+#  	default y
+config FLASH
+ 	default y
+config FLASH_PAGE_LAYOUT
+ 	default y
+config FLASH_MAP
+ 	default y
+config NVS
+ 	default y
+# config SETTINGS_NVS
+#  	default y
+config SETTINGS
+ 	default y
+# Enable support for shell commands
+config SHELL
+ 	default y
+config SHELL_STACK_SIZE
+ 	default 8192
+config WIFI_CREDENTIALS_SHELL
+ 	default y
+

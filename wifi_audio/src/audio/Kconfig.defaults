@@ -1,0 +1,13 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+# Audio sync timer
+config NRFX_TIMER1
+	default y
+
+# Audio sync timer
+config NRFX_DPPI
+	default y

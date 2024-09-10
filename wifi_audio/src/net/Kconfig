@@ -1,0 +1,37 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+#----------------------------------------------------------------------------#
+rsource "Kconfig.defaults"
+
+#----------------------------------------------------------------------------#
+menu "NETWORK Module"
+
+choice NETWORK_CONNECT_METHOD
+	prompt "Choose network connection methods"
+	default CONNECT_WITH_WIFI
+
+config CONNECT_WITH_WIFI
+	bool "Connect devices with Wi-Fi network"
+
+config CONNECT_WITH_DECTNR
+	bool "Connect devices with DECT NR+ network"
+
+endchoice # NETWORK_CONNECTION_METHOD
+
+endmenu #"NETWORK Module"
+
+#----------------------------------------------------------------------------#
+rsource "socket/Kconfig.socket_util_module"
+
+if (CONNECT_WITH_WIFI)
+        rsource "wifi/Kconfig.wifi_module"
+endif # CONNECT_WITH_WIFI
+
+#----------------------------------------------------------------------------#
+module = NETWORK_MODULE
+module-str = NETWORK module
+source "subsys/logging/Kconfig.template.log_config"

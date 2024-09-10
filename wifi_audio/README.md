@@ -18,13 +18,15 @@ west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta --sysbuild -- -DSH
 WiFi Station Mode + Static SSID & PASSWORD + UDP
 
 ```
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-sta-static.conf
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-wifi-sta-static.conf
 ```
 
 WiFi SoftAP Mode + UDP
 
 ```
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_softap --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-softap.conf 
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_softap --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-wifi-softap.conf 
 ```
 
 Use `-DEXTRA_CONF_FILE=overlay-tcp.conf` to switch from UDP socket to TCP socket.
+
+
