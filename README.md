@@ -1,52 +1,32 @@
-# nordic_wifi_audio_demo
+# wifi_audio_simple_sample
 
-A demo for Wi-Fi Audio based on nRF5340 Audio DK + nRF7002 EK
+A simple sample to demo Wi-Fi and UDP/TCP scoket connection for audio through Wi-Fi usage.
 
-# Hardware
+# Requirements:
 
-Recorder: nRF5340 Audio DK + nRF7002 EK
+HW: nRF5340 Audio DK + nRF7002EK
+SW: NCS v2.7.0
 
-Player: nRF5340 Audio DK + nRF7002 EK / UDP+Opus client on PC and Mobilephone
+The sample has following building options:
 
-# Software
-
-nRF Connect SDK v2.7.0
-
-# Building
-
-VS Code Extension:
-
-![recorder build configuraiton](/doc_resources/build_configuraiton_recorder.png)
-
-Command line:
-
-Build WiFi Sta:
+WiFi Station Mode + WiFi CREDENTIALS SHELL(for SSID+Password Input) + UDP
 
 ```
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild -- -DSHIELD=nrf7002ek
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta --sysbuild -- -DSHIELD=nrf7002ek
 ```
 
-Build nRF5340 Audio Unicast Client (CIS Gateway Mode):
+WiFi Station Mode + Static SSID & PASSWORD + UDP
 
 ```
-west build -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild --pristine -d build_unicast_client_tx  -- -DCONFIG_AUDIO_DEV=2
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-wifi-sta-static.conf
 ```
 
-Build nRF5340 Audio Unicast Server (CIS Headset Mode):
+WiFi SoftAP Mode + UDP
 
 ```
-west build -b nrf5340_audio_dk/nrf5340/cpuapp --sysbuild --pristine -d build_unicast_client_rx  -- -DCONFIG_AUDIO_DEV=1
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_softap --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-wifi-softap.conf 
 ```
 
-# To-do-Tasks
+Use `-DEXTRA_CONF_FILE=overlay-tcp.conf` to switch from UDP socket to TCP socket.
 
-1. Audio drivers (Line in/Microphone ADC and Headphone DAC)
-2. Data streaming via UDP/Wi-Fi on Station mode
-3. Port latest opus-codec library
 
-# Useful references
-
-- [nrf52_audio_opus_sgtl5000](https://github.com/ubicore/nrf52_audio_opus_sgtl5000)
-- [NCS nRF5340 Audio applications](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/applications/nrf5340_audio/index.html)
-- [Wi-Fi BLE Camera Demo](https://github.com/NordicPlayground/nrf70-wifi-ble-image-transfer-demo)
-- [Opus Codec](https://opus-codec.org/)
