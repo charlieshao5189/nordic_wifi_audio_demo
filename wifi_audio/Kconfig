@@ -32,6 +32,13 @@ config AUDIO_RECEIVER
 # 	bool "Play as walkie talkie role after connection build"
 
 endchoice # AUDIO_DEV
+
+config AUDIO_USB_PASS_THROUGH
+	bool "Enable USB pass through"
+	default n
+	help
+	  Enable USB pass through feature.
+
 rsource "src/audio/Kconfig"
 rsource "src/net/Kconfig"
 rsource "src/drivers/Kconfig"

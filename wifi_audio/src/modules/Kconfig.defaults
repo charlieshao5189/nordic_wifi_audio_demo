@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 #
 
+# NOTE: AUDIO_USB_PASS_THROUGH added to be able to use USB audio as source while in headset mode
+
 # GATEWAY
-if AUDIO_DEV = 2
+if AUDIO_DEV = 2 || AUDIO_USB_PASS_THROUGH
 
 if AUDIO_SOURCE_USB
 
