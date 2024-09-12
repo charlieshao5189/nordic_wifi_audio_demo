@@ -49,14 +49,23 @@ static const struct board_version BOARD_VERSION_ARR[] = {
 	{ "1.2.0", BOARD_PCA10121_1_2_0_MSK, 2219 },
 };
 
+// #define BOARD_VERSION_VALID_MSK                                                                    \
+// 	(BOARD_PCA10121_0_8_0_MSK | BOARD_PCA10121_0_8_1_MSK | BOARD_PCA10121_0_8_2_MSK |          \
+// 	 BOARD_PCA10121_0_9_0_MSK | BOARD_PCA10121_0_10_0_MSK | BOARD_PCA10121_1_0_0_MSK |         \
+// 	 BOARD_PCA10121_1_1_0_MSK | BOARD_PCA10121_1_2_0_MSK)
+
+// #define BOARD_VERSION_VALID_MSK_SD_CARD                                                            \
+// 	(BOARD_PCA10121_0_8_0_MSK | BOARD_PCA10121_0_8_1_MSK | BOARD_PCA10121_0_8_2_MSK |          \
+// 	 BOARD_PCA10121_0_9_0_MSK | BOARD_PCA10121_0_10_0_MSK | BOARD_PCA10121_1_0_0_MSK |         \
+// 	 BOARD_PCA10121_1_1_0_MSK | BOARD_PCA10121_1_2_0_MSK)
+
+// NOTE: nRF5340_AUDIO_DK in combination with nRF7002_EK seams to be valid only for 1.1.0 and up
+//			Tested on 1.0.0 - 1.2.0
+
 #define BOARD_VERSION_VALID_MSK                                                                    \
-	(BOARD_PCA10121_0_8_0_MSK | BOARD_PCA10121_0_8_1_MSK | BOARD_PCA10121_0_8_2_MSK |          \
-	 BOARD_PCA10121_0_9_0_MSK | BOARD_PCA10121_0_10_0_MSK | BOARD_PCA10121_1_0_0_MSK |         \
-	 BOARD_PCA10121_1_1_0_MSK | BOARD_PCA10121_1_2_0_MSK)
+	(BOARD_PCA10121_1_1_0_MSK | BOARD_PCA10121_1_2_0_MSK)
 
 #define BOARD_VERSION_VALID_MSK_SD_CARD                                                            \
-	(BOARD_PCA10121_0_8_0_MSK | BOARD_PCA10121_0_8_1_MSK | BOARD_PCA10121_0_8_2_MSK |          \
-	 BOARD_PCA10121_0_9_0_MSK | BOARD_PCA10121_0_10_0_MSK | BOARD_PCA10121_1_0_0_MSK |         \
-	 BOARD_PCA10121_1_1_0_MSK | BOARD_PCA10121_1_2_0_MSK)
+	(BOARD_PCA10121_1_1_0_MSK | BOARD_PCA10121_1_2_0_MSK)
 
 #endif
