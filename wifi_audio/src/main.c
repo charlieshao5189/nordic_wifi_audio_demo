@@ -10,9 +10,10 @@
 
 #define MODULE main
 
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(MODULE, CONFIG_MAIN_LOG_LEVEL);
+//#include <zephyr/logging/log.h>
+//LOG_MODULE_REGISTER(MODULE, CONFIG_MAIN_LOG_LEVEL);
 #include "streamctrl.h"
+#include "audio/audio_codec_opus_api.h"
 
 static enum stream_state strm_state = STATE_PAUSED;
 
@@ -27,10 +28,11 @@ void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
 	ARG_UNUSED(size);
 	ARG_UNUSED(num_ch);
 
-	LOG_WRN("Sending is not possible for broadcast sink");
+	//LOG_WRN("Sending is not possible for broadcast sink");
 }
 
 int main(void)
 {
-        LOG_INF("WiFi Audio Transceiver Start!");
+    //LOG_INF("WiFi Audio Transceiver Start!");
+    audio_codec_opus_init();
 }
