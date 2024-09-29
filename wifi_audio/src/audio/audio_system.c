@@ -104,6 +104,14 @@ static void audio_headset_configure(void)
 	}
 }
 
+// # define CONFIG_CODEC_OPUS
+
+# ifdef CONFIG_CODEC_OPUS
+#include "audio_codec_opus_api.h"
+static m_audio_frame_t frame_OPUS_encode;
+// static m_audio_frame_t frame_OPUS_decode = {.data_size = 0};
+# endif
+
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
 {
 	int ret;
@@ -123,7 +131,6 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	while (1) {
 		/* Don't start encoding until the stream needing it has started */
 		ret = k_poll(&encoder_evt, 1, K_FOREVER);
-
 		/* Get PCM data from I2S */
 		/* Since one audio frame is divided into a number of
 		 * blocks, we need to fetch the pointers to all of these
@@ -134,50 +141,63 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			ret = data_fifo_pointer_last_filled_get(&fifo_rx, &tmp_pcm_raw_data[i],
 								&pcm_block_size, K_FOREVER);
 			ERR_CHK(ret);
+
 			memcpy(pcm_raw_data + (i * BLOCK_SIZE_BYTES), tmp_pcm_raw_data[i],
 			       pcm_block_size);
 
 			data_fifo_block_free(&fifo_rx, tmp_pcm_raw_data[i]);
 		}
 
-		if (sw_codec_cfg.encoder.enabled) {
-			if (test_tone_size) {
-				/* Test tone takes over audio stream */
-				uint32_t num_bytes;
-				char tmp[FRAME_SIZE_BYTES / 2];
+		// if (sw_codec_cfg.encoder.enabled) {
+		// 	if (test_tone_size) {
+		// 		/* Test tone takes over audio stream */
+		// 		uint32_t num_bytes;
+		// 		char tmp[FRAME_SIZE_BYTES / 2];
 
-				ret = contin_array_create(tmp, FRAME_SIZE_BYTES / 2, test_tone_buf,
-							  test_tone_size, &test_tone_finite_pos);
-				ERR_CHK(ret);
+		// 		ret = contin_array_create(tmp, FRAME_SIZE_BYTES / 2, test_tone_buf,
+		// 					  test_tone_size, &test_tone_finite_pos);
+		// 		ERR_CHK(ret);
 
-				ret = pscm_copy_pad(tmp, FRAME_SIZE_BYTES / 2,
-						    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_raw_data,
-						    &num_bytes);
-				ERR_CHK(ret);
-			}
+		// 		ret = pscm_copy_pad(tmp, FRAME_SIZE_BYTES / 2,
+		// 				    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_raw_data,
+		// 				    &num_bytes);
+		// 		ERR_CHK(ret);
+		// 	}
 
-			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
-					      &encoded_data_size);
+		// 	ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
+		// 			      &encoded_data_size);
 
-			ERR_CHK_MSG(ret, "Encode failed");
-		}
+		// 	ERR_CHK_MSG(ret, "Encode failed");
+		// }
 
-		/* Print block usage */
-		if (debug_trans_count == DEBUG_INTERVAL_NUM) {
-			ret = data_fifo_num_used_get(&fifo_rx, &blocks_alloced_num,
-						     &blocks_locked_num);
-			ERR_CHK(ret);
-			LOG_DBG(COLOR_CYAN "RX alloced: %d, locked: %d" COLOR_RESET,
-				blocks_alloced_num, blocks_locked_num);
-			debug_trans_count = 0;
-		} else {
-			debug_trans_count++;
-		}
+		// /* Print block usage */
+		// if (debug_trans_count == DEBUG_INTERVAL_NUM) {
+		// 	ret = data_fifo_num_used_get(&fifo_rx, &blocks_alloced_num,
+		// 				     &blocks_locked_num);
+		// 	ERR_CHK(ret);
+		// 	LOG_DBG(COLOR_CYAN "RX alloced: %d, locked: %d" COLOR_RESET,
+		// 		blocks_alloced_num, blocks_locked_num);
+		// 	debug_trans_count = 0;
+		// } else {
+		// 	debug_trans_count++;
+		// }
 
-		if (sw_codec_cfg.encoder.enabled) {
-			streamctrl_send(encoded_data, encoded_data_size,
-					sw_codec_cfg.encoder.num_ch);
-		}
+		// if (sw_codec_cfg.encoder.enabled) {
+		// 	streamctrl_send(encoded_data, encoded_data_size,
+		// 			sw_codec_cfg.encoder.num_ch);
+		// }
+                // LOG_INF("pcm_raw_data %zu bytes", (size_t)FRAME_SIZE_BYTES);  // Use %zu for size_t values
+                // LOG_HEXDUMP_INF(pcm_raw_data, FRAME_SIZE_BYTES, "pcm_raw_data(HEX):");
+                # ifdef CONFIG_CODEC_OPUS
+                        m_audio_frame_t *p_frame = (m_audio_frame_t *) &frame_OPUS_encode;
+                        drv_audio_codec_encode((int16_t *) pcm_raw_data, p_frame);
+                        LOG_INF("opus data: %zu bytes", (size_t)p_frame->data_size);  // Use %zu for size_t values
+                        // LOG_HEXDUMP_INF(p_frame->data,, FRAME_SIZE_BYTES, "p_frame->data,(HEX):");
+                        streamctrl_send(p_frame->data, p_frame->data_size,NULL);
+                # else
+                        streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES,NULL);
+                # endif #CONFIG_CODEC_OPUS
+               
 		STACK_USAGE_PRINT("encoder_thread", &encoder_thread_data);
 	}
 }
@@ -367,9 +387,9 @@ void audio_system_start(void)
 {
 	int ret;
 
-	if (CONFIG_AUDIO_DEV == HEADSET) {
+	if (IS_ENABLED(CONFIG_AUDIO_HEADSET)) {
 		audio_headset_configure();
-	} else if (CONFIG_AUDIO_DEV == GATEWAY) {
+	} else if (IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
 		audio_gateway_configure();
 	} else {
 		LOG_ERR("Invalid CONFIG_AUDIO_DEV: %d", CONFIG_AUDIO_DEV);
@@ -386,8 +406,8 @@ void audio_system_start(void)
 		ERR_CHK_MSG(ret, "Failed to set up rx FIFO");
 	}
 
-	ret = sw_codec_init(sw_codec_cfg);
-	ERR_CHK_MSG(ret, "Failed to set up codec");
+	// ret = sw_codec_init(sw_codec_cfg);
+	// ERR_CHK_MSG(ret, "Failed to set up codec");
 
 	sw_codec_cfg.initialized = true;
 
@@ -400,7 +420,7 @@ void audio_system_start(void)
 		ERR_CHK(ret);
 	}
 
-#if ((CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY))
+#if (IS_ENABLED(CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_USB))
 	ret = audio_usb_start(&fifo_tx, &fifo_rx);
 	ERR_CHK(ret);
 #else
@@ -409,7 +429,7 @@ void audio_system_start(void)
 
 	ret = audio_datapath_start(&fifo_rx);
 	ERR_CHK(ret);
-#endif /* ((CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY))) */
+#endif /* ((CONFIG_AUDIO_SOURCE_USB) && IS_ENABLED(CONFIG_AUDIO_GATEWAY))) */
 }
 
 void audio_system_stop(void)
@@ -423,7 +443,7 @@ void audio_system_stop(void)
 
 	LOG_DBG("Stopping codec");
 
-#if ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB)
+#if (IS_ENABLED(CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_USB))
 	audio_usb_stop();
 #else
 	ret = hw_codec_soft_reset();
@@ -431,7 +451,7 @@ void audio_system_stop(void)
 
 	ret = audio_datapath_stop();
 	ERR_CHK(ret);
-#endif /* ((CONFIG_AUDIO_DEV == GATEWAY) && CONFIG_AUDIO_SOURCE_USB) */
+#endif /* ((CONFIG_AUDIO_GATEWAY) && CONFIG_AUDIO_SOURCE_USB) */
 
 	ret = sw_codec_uninit(sw_codec_cfg);
 	ERR_CHK_MSG(ret, "Failed to uninit codec");
@@ -468,7 +488,7 @@ int audio_system_init(void)
 {
 	int ret;
 
-#if ((CONFIG_AUDIO_DEV == GATEWAY) && (CONFIG_AUDIO_SOURCE_USB))
+#if (IS_ENABLED(CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_USB))
 	ret = audio_usb_init();
 	if (ret) {
 		LOG_ERR("Failed to initialize USB: %d", ret);

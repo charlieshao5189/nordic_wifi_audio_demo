@@ -125,6 +125,9 @@ static void data_received(const struct device *dev, struct net_buf *buffer, size
 
 	memcpy(data_in, buffer->data, size);
 
+        //LOG_DBG("usb audio data_in %zu bytes", (size_t)size);  // Use %zu for size_t values
+        //LOG_HEXDUMP_DBG(data_in, 8, "usb audio data_in(HEX):");
+
 	ret = data_fifo_block_lock(fifo_rx, &data_in, size);
 	ERR_CHK_MSG(ret, "Failed to lock block");
 

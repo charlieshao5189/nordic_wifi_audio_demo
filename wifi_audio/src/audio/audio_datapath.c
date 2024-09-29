@@ -42,8 +42,8 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 #define BLK_PERIOD_US 1000
 
 /* Total sample FIFO period in microseconds */
-#define FIFO_SMPL_PERIOD_US (CONFIG_AUDIO_MAX_PRES_DLY_US * 2)
-#define FIFO_NUM_BLKS	    NUM_BLKS(FIFO_SMPL_PERIOD_US)
+#define FIFO_SMPL_PERIOD_US (CONFIG_AUDIO_MAX_PRES_DLY_US * 2) //60000*2us=120ms
+#define FIFO_NUM_BLKS	    NUM_BLKS(FIFO_SMPL_PERIOD_US) //120ms/1s=120 blocks
 #define MAX_FIFO_SIZE	    (FIFO_NUM_BLKS * BLK_SIZE_SAMPLES(CONFIG_AUDIO_SAMPLE_RATE_HZ) * 2)
 
 /* Number of audio blocks given a duration */
@@ -233,7 +233,7 @@ static void drift_comp_state_set(enum drift_comp_state new_state)
  */
 static void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 {
-	if (CONFIG_AUDIO_DEV == HEADSET) {
+	if (IS_ENABLED(CONFIG_AUDIO_HEADSET)) {
 		/** For headsets we do not use the timestamp gotten from hci_tx_sync_get to adjust
 		 * for drift
 		 */
@@ -627,7 +627,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	/********** I2S TX **********/
 	static uint8_t *tx_buf;
 
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_HEADSET)) {
 		if (tx_buf_released != NULL) {
 			/* Double buffered index */
 			uint32_t next_out_blk_idx = NEXT_IDX(ctrl_blk.out.cons_blk_idx);
@@ -676,7 +676,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	static uint32_t *rx_buf;
 	static int prev_ret;
 
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
 		/* Lock last filled buffer into message queue */
 		if (rx_buf_released != NULL) {
 			ret = data_fifo_block_lock(ctrl_blk.in.fifo, (void **)&rx_buf_released,
@@ -736,7 +736,7 @@ static void audio_datapath_i2s_start(void)
 	uint32_t *rx_buf_two = NULL;
 
 	/* TX */
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_HEADSET)) {
 		ctrl_blk.out.cons_blk_idx = PREV_IDX(ctrl_blk.out.cons_blk_idx);
 		tx_buf_one = (uint8_t *)&ctrl_blk.out
 				     .fifo[ctrl_blk.out.cons_blk_idx * BLK_STEREO_NUM_SAMPS];
@@ -747,7 +747,7 @@ static void audio_datapath_i2s_start(void)
 	}
 
 	/* RX */
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == GATEWAY)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
 		uint32_t alloced_cnt;
 		uint32_t locked_cnt;
 
@@ -890,79 +890,81 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 		return;
 	}
 
-	/*** Check incoming data ***/
+	// /*** Check incoming data ***/
 
 	if (!buf) {
 		LOG_ERR("Buffer pointer is NULL");
 	}
 
-	if (sdu_ref_us == ctrl_blk.prev_pres_sdu_ref_us && sdu_ref_us != 0) {
-		LOG_WRN("Duplicate sdu_ref_us (%d) - Dropping audio frame", sdu_ref_us);
-		return;
-	}
+	// if (sdu_ref_us == ctrl_blk.prev_pres_sdu_ref_us && sdu_ref_us != 0) {
+	// 	LOG_WRN("Duplicate sdu_ref_us (%d) - Dropping audio frame", sdu_ref_us);
+	// 	return;
+	// }
 
-	bool sdu_ref_not_consecutive = false;
+	// bool sdu_ref_not_consecutive = false;
 
-	if (ctrl_blk.prev_pres_sdu_ref_us) {
-		uint32_t sdu_ref_delta_us = sdu_ref_us - ctrl_blk.prev_pres_sdu_ref_us;
+	// if (ctrl_blk.prev_pres_sdu_ref_us) {
+	// 	uint32_t sdu_ref_delta_us = sdu_ref_us - ctrl_blk.prev_pres_sdu_ref_us;
 
-		/* Check if the delta is from two consecutive frames */
-		if (sdu_ref_delta_us <
-		    (CONFIG_AUDIO_FRAME_DURATION_US + (CONFIG_AUDIO_FRAME_DURATION_US / 2))) {
-			/* Check for invalid delta */
-			if ((sdu_ref_delta_us >
-			     (CONFIG_AUDIO_FRAME_DURATION_US + SDU_REF_DELTA_MAX_ERR_US)) ||
-			    (sdu_ref_delta_us <
-			     (CONFIG_AUDIO_FRAME_DURATION_US - SDU_REF_DELTA_MAX_ERR_US))) {
-				LOG_DBG("Invalid sdu_ref_us delta (%d) - Estimating sdu_ref_us",
-					sdu_ref_delta_us);
+	// 	/* Check if the delta is from two consecutive frames */
+	// 	if (sdu_ref_delta_us <
+	// 	    (CONFIG_AUDIO_FRAME_DURATION_US + (CONFIG_AUDIO_FRAME_DURATION_US / 2))) {
+	// 		/* Check for invalid delta */
+	// 		if ((sdu_ref_delta_us >
+	// 		     (CONFIG_AUDIO_FRAME_DURATION_US + SDU_REF_DELTA_MAX_ERR_US)) ||
+	// 		    (sdu_ref_delta_us <
+	// 		     (CONFIG_AUDIO_FRAME_DURATION_US - SDU_REF_DELTA_MAX_ERR_US))) {
+	// 			LOG_DBG("Invalid sdu_ref_us delta (%d) - Estimating sdu_ref_us",
+	// 				sdu_ref_delta_us);
 
-				/* Estimate sdu_ref_us */
-				sdu_ref_us = ctrl_blk.prev_pres_sdu_ref_us +
-					     CONFIG_AUDIO_FRAME_DURATION_US;
-			}
-		} else {
-			LOG_INF("sdu_ref_us not from consecutive frames (diff: %d us)",
-				sdu_ref_delta_us);
-			sdu_ref_not_consecutive = true;
-		}
-	}
+	// 			/* Estimate sdu_ref_us */
+	// 			sdu_ref_us = ctrl_blk.prev_pres_sdu_ref_us +
+	// 				     CONFIG_AUDIO_FRAME_DURATION_US;
+	// 		}
+	// 	} else {
+	// 		LOG_INF("sdu_ref_us not from consecutive frames (diff: %d us)",
+	// 			sdu_ref_delta_us);
+	// 		sdu_ref_not_consecutive = true;
+	// 	}
+	// }
 
-	ctrl_blk.prev_pres_sdu_ref_us = sdu_ref_us;
+	// ctrl_blk.prev_pres_sdu_ref_us = sdu_ref_us;
 
-	/*** Presentation compensation ***/
-	if (ctrl_blk.pres_comp.enabled) {
-		audio_datapath_presentation_compensation(recv_frame_ts_us, sdu_ref_us,
-							 sdu_ref_not_consecutive);
-	}
+	// /*** Presentation compensation ***/
+	// if (ctrl_blk.pres_comp.enabled) {
+	// 	audio_datapath_presentation_compensation(recv_frame_ts_us, sdu_ref_us,
+	// 						 sdu_ref_not_consecutive);
+	// }
 
-	/*** Decode ***/
+	// /*** Decode ***/
 
 	int ret;
 	size_t pcm_size;
 
-	ret = sw_codec_decode(buf, size, bad_frame, &ctrl_blk.decoded_data, &pcm_size);
-	if (ret) {
-		LOG_WRN("SW codec decode error: %d", ret);
-	}
+	// ret = sw_codec_decode(buf, size, bad_frame, &ctrl_blk.decoded_data, &pcm_size);
+	// if (ret) {
+	// 	LOG_WRN("SW codec decode error: %d", ret);
+	// }
 
-	if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
-		if (sd_card_playback_is_active()) {
-			sd_card_playback_mix_with_stream(ctrl_blk.decoded_data, pcm_size);
-		}
-	}
+	// if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
+	// 	if (sd_card_playback_is_active()) {
+	// 		sd_card_playback_mix_with_stream(ctrl_blk.decoded_data, pcm_size);
+	// 	}
+	// }
 
-	if (pcm_size != (BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME)) {
-		LOG_WRN("Decoded audio has wrong size: %d. Expected: %d", pcm_size,
-			(BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME));
-		/* Discard frame */
-		return;
-	}
-
+	// if (pcm_size != (BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME)) {
+	// 	LOG_WRN("Decoded audio has wrong size: %d. Expected: %d", pcm_size,
+	// 		(BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME));
+	// 	/* Discard frame */
+	// 	return;
+	// }
+        //pcm_size = 1920
+        pcm_size = BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME;
 	/*** Add audio data to FIFO buffer ***/
 
 	int32_t num_blks_in_fifo = ctrl_blk.out.prod_blk_idx - ctrl_blk.out.cons_blk_idx;
-
+        // FIFO_NUM_BLKS = 120
+        // NUM_BLKS_IN_FRAME = 10
 	if ((num_blks_in_fifo + NUM_BLKS_IN_FRAME) > FIFO_NUM_BLKS) {
 		LOG_WRN("Output audio stream overrun - Discarding audio frame");
 
@@ -972,10 +974,13 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 
 	uint32_t out_blk_idx = ctrl_blk.out.prod_blk_idx;
 
+        // BLK_STEREO_NUM_SAMPS = 96
+        // BLK_STEREO_SIZE_OCTETS = 192
 	for (uint32_t i = 0; i < NUM_BLKS_IN_FRAME; i++) {
 		if (IS_ENABLED(CONFIG_AUDIO_BIT_DEPTH_16)) {
 			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
-			       &((int16_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],
+			//        &((int16_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],
+                                &((int16_t *)buf)[i * BLK_STEREO_NUM_SAMPS],
 			       BLK_STEREO_SIZE_OCTETS);
 		} else if (IS_ENABLED(CONFIG_AUDIO_BIT_DEPTH_32)) {
 			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
@@ -984,7 +989,7 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 		}
 
 		/* Record producer block start reference */
-		ctrl_blk.out.prod_blk_ts[out_blk_idx] = recv_frame_ts_us + (i * BLK_PERIOD_US);
+		// ctrl_blk.out.prod_blk_ts[out_blk_idx] = recv_frame_ts_us + (i * BLK_PERIOD_US);
 
 		out_blk_idx = NEXT_IDX(out_blk_idx);
 	}
@@ -1041,7 +1046,7 @@ int audio_datapath_init(void)
 	ctrl_blk.drift_comp.enabled = true;
 	ctrl_blk.pres_comp.enabled = true;
 
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) && (CONFIG_AUDIO_DEV == GATEWAY)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) && IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
 		/* Disable presentation compensation feature for microphone return on gateway,
 		 * since there's only one stream output from gateway for now, so no need to
 		 * qhave presentation compensation.
