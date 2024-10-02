@@ -31,7 +31,7 @@ target_sources(app PRIVATE
         )
 target_include_directories(app PRIVATE 
         src
-        src/audio
+        #src/audio
         src/net
         src/drivers
         src/modules
@@ -40,7 +40,7 @@ target_include_directories(app PRIVATE
         ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340
         )
 
-add_subdirectory(src/audio)
+#add_subdirectory(src/audio)
 add_subdirectory(src/net)
 add_subdirectory(src/drivers)
 add_subdirectory(src/modules)
@@ -56,22 +56,89 @@ if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
 endif()
 
 
-# For Opus building
+# # For Opus building
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
+#  -DARM_MATH_CM4 \
+#  -DDISABLE_FLOAT_API \
+#  -DFIXED_POINT \
+#  -DUSE_ALLOCA \
+#  -DHAVE_LRINT \
+#  -DHAVE_LRINTF \
+#  -DOPUS_ARM_ASM \
+#  -DOPUS_ARM_INLINE_EDSP \
+#  -DOPUS_ARM_INLINE_MEDIA \
+#  -DOPUS_ARM_MAY_HAVE_EDSP \
+#  -DOPUS_ARM_PRESUME_EDSP \
+#  -DCUSTOM_SUPPORT \
+#  -DVAR_ARRAYS \
+#  -DOPUS_BUILD \
+#  -DHAVE_CONFIG_H \
+#  -g \
+# ")
+
+# Exclude files with main function
+list(APPEND EXCLUDE_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/celt/dump_modes/dump_modes.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/src_c/opus_compare.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/src_c/opus_demo.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/src_c/repacketizer_demo.c"
+)
+
+FILE(GLOB audio_sources
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/*.c
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/celt/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/celt/arm/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/celt/dump_modes/*.c
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/silk/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/silk/arm/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/silk/fixed/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/silk/fixed/arm/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/silk/float/*.c
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/libc_opus/*.c
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/audio/opus/src_c/*.c
+    )
+
+foreach(file ${EXCLUDE_FILES})
+    list(REMOVE_ITEM audio_sources ${file})
+endforeach()
+
+target_sources(app PRIVATE ${audio_sources})
+
+target_include_directories(app PRIVATE
+    src/audio
+    src/audio/opus
+    src/audio/opus/libc_opus
+    src/audio/opus/include
+    src/audio/opus/celt
+    src/audio/opus/celt/arm
+    src/audio/opus/celt/dump_modes
+    src/audio/opus/silk
+    src/audio/opus/silk/arm
+    src/audio/opus/silk/fixed
+    src/audio/opus/silk/fixed/arm
+    src/audio/opus/silk/float
+    ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340
+)
+
+
+# For OPUS
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
- -DARM_MATH_CM4 \
- -DDISABLE_FLOAT_API \
- -DFIXED_POINT \
- -DUSE_ALLOCA \
- -DHAVE_LRINT \
- -DHAVE_LRINTF \
- -DOPUS_ARM_ASM \
- -DOPUS_ARM_INLINE_EDSP \
- -DOPUS_ARM_INLINE_MEDIA \
- -DOPUS_ARM_MAY_HAVE_EDSP \
- -DOPUS_ARM_PRESUME_EDSP \
- -DCUSTOM_SUPPORT \
- -DVAR_ARRAYS \
- -DOPUS_BUILD \
- -DHAVE_CONFIG_H \
- -g \
+-DARM_MATH_CM4 \
+-DUSE_ALLOCA \
+-DHAVE_LRINT \
+-DHAVE_LRINTF \
+-DCUSTOM_SUPPORT \
+-DVAR_ARRAYS \
+-DOPUS_BUILD \
+-DHAVE_CONFIG_H \
+-g \
+-mfpu=fpv5-sp-d16 \
+-mfloat-abi=hard \
+-mcpu=cortex-m33 \
+-mthumb \
 ")

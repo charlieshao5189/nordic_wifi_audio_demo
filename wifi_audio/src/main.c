@@ -13,7 +13,7 @@
 //#include <zephyr/logging/log.h>
 //LOG_MODULE_REGISTER(MODULE, CONFIG_MAIN_LOG_LEVEL);
 #include "streamctrl.h"
-#include "audio/audio_codec_opus_api.h"
+#include "audio/opus/audio_codec_opus_api.h"
 
 static enum stream_state strm_state = STATE_PAUSED;
 
