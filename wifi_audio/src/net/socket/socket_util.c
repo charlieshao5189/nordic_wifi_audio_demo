@@ -3,11 +3,8 @@
  *
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
-
-#define MODULE socket_utility_module
-
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(MODULE, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
+LOG_MODULE_REGISTER(socket_util, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 
 #include <errno.h>
 #include <stddef.h>
@@ -18,6 +15,7 @@ LOG_MODULE_REGISTER(MODULE, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 #include <zephyr/net/socket.h>
 /* Macro called upon a fatal error, reboots the device. */
 #include <zephyr/sys/reboot.h>
+#include <dk_buttons_and_leds.h>
 #include <zephyr/logging/log_ctrl.h>
 #include "socket_util.h"
 
@@ -30,47 +28,51 @@ LOG_MODULE_REGISTER(MODULE, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 #define STACKSIZE 8192
 /* scheduling priority used by each thread */
 #define PRIORITY 3
-/* Same as COMMAND_MAX_SIZE*/
-#define BUFFER_MAX_SIZE 6
+
 
 //#define pc_port  60000
 #define socket_port 60010 // use for either udp or tcp server
 
+
+/**********External Resources START**************/
+extern int wifi_station_mode_ready(void);
+extern int wifi_softap_mode_ready(void);
+/**********External Resources END**************/
+
 int udp_socket;
 int tcp_server_listen_fd;
 int tcp_server_socket;
-struct sockaddr_in cam_addr;
+struct sockaddr_in self_addr;
 bool socket_connected=false;
 
-char pc_addr_str[32];
-struct sockaddr_in pc_addr;
-socklen_t pc_addr_len=sizeof(pc_addr);
+char target_addr_str[32];
+struct sockaddr_in target_addr;
+socklen_t target_addr_len=sizeof(target_addr);
 
 /* Define the semaphore net_connect_ready */
 struct k_sem net_connect_ready;
+enum wifi_modes wifi_mode=WIFI_STATION_MODE;
 
-uint8_t socket_recv_buf[BUFFER_MAX_SIZE];
-K_MSGQ_DEFINE(socket_recv_queue, sizeof(socket_recv_buf), 1, 4);
 
-static socket_rx_callback_t socket_rx_cb = 0; 
-static network_ready_callback_t network_ready_cb = 0; 
 
-void set_socket_rx_callback(socket_rx_callback_t socket_rx_callback)
+static socket_receive_t socket_receive;
+
+K_MSGQ_DEFINE(socket_recv_queue, sizeof(socket_receive), 1, 4);
+
+static net_util_socket_rx_callback_t socket_rx_cb = 0; 
+
+void socket_util_set_rx_callback(net_util_socket_rx_callback_t socket_rx_callback)
 {
 	socket_rx_cb = socket_rx_callback;
+
 	// If any messages are waiting in the queue, forward them immediately
-	uint8_t buf[6];
-	while (k_msgq_get(&socket_recv_queue, buf, K_NO_WAIT) == 0) {
-		socket_rx_cb(buf, 6);
+	socket_receive_t socket_receive;
+	while (k_msgq_get(&socket_recv_queue, &socket_receive, K_NO_WAIT) == 0) {
+		socket_rx_cb(socket_receive.buf, socket_receive.len);
 	}
 }
 
-void set_network_ready_callback(network_ready_callback_t network_ready_callback)
-{
-	network_ready_cb = network_ready_callback;
-}
-
-uint8_t process_socket_rx(char *socket_rx_buf, char *command_buf)
+uint8_t process_socket_rx_buffer(char *socket_rx_buf, char *command_buf)
 {
 	uint8_t command_length = 0;
 
@@ -95,49 +97,85 @@ uint8_t process_socket_rx(char *socket_rx_buf, char *command_buf)
 	return command_length;
 }
 
-static void trigger_socket_rx_callback_if_set()
+static void socket_util_trigger_rx_callback_if_set()
 {
-        LOG_HEXDUMP_INF(socket_recv_buf, 6, "socket_rx_cb");
+        // LOG_DBG("Received %d bytes", socket_receive.len);
+        // LOG_HEXDUMP_DBG(socket_receive.buf, socket_receive.len, "Buffer contents(HEX):");
 	if (socket_rx_cb != 0) {
-		socket_rx_cb(socket_recv_buf, 6);
+		socket_rx_cb(socket_receive.buf, socket_receive.len);
 	} else {
-		k_msgq_put(&socket_recv_queue, &socket_recv_buf, K_NO_WAIT);
+		k_msgq_put(&socket_recv_queue, &socket_receive, K_NO_WAIT);
 	}
 }
 
+void socket_util_tx_data(uint8_t *data, size_t length)
+{
 
-void socket_tx(const void *buf, size_t len){
-		#if defined(USE_TCP_SOCKET)
-			if (send(tcp_server_socket, buf, len, 0) == -1) {
-				perror("Sending failed");
-				close(tcp_server_socket);
-				FATAL_ERROR();
-				return;
-			}
-		#else
-			sendto(udp_socket, buf, len, 0, (struct sockaddr *)&pc_addr,  sizeof(pc_addr));
-		#endif
+    size_t chunk_size = 1024;
+    ssize_t bytes_sent;
+
+    while (length > 0) {
+        size_t to_send = (length >= chunk_size) ? chunk_size : length;
+
+        #if defined(USE_TCP_SOCKET)
+            bytes_sent = send(tcp_server_socket, data, to_send, 0);
+        #else
+            bytes_sent = sendto(udp_socket, data, to_send, 0, (struct sockaddr *)&target_addr, sizeof(target_addr));
+        #endif
+
+        if (bytes_sent == -1) {
+            perror("Sending failed");
+            
+            #if defined(USE_TCP_SOCKET)
+                close(tcp_server_socket);
+            #else
+                close(udp_socket);
+            #endif
+
+            FATAL_ERROR();
+            return;
+        }
+
+        data += bytes_sent;
+        length -= bytes_sent;
+    }
 }
 
-/* Thread to setup Network and Socket connection step by step */
-static void net_sockets(void)
+/* Thread to setup WiFi, Sockets step by step */
+void socket_util_thread(void)
 {
 	int ret;
-	ssize_t bytes_recived;
 
 	k_sem_init(&net_connect_ready, 0, 1);
 
-        ret = network_ready_cb();
+	if (dk_leds_init() != 0)
+	{
+		LOG_ERR("Failed to initialize the LED library");
+	}
+
+        #if defined(CONFIG_NRF700X_AP_MODE)
+                ret = wifi_softap_mode_ready();
+        #else
+                ret = wifi_station_mode_ready();
+        #endif
+        
 	if (ret < 0)
 	{
-		LOG_ERR("Network connection is not ready, error: %d", -errno);
+		LOG_ERR("wifi network connection is not ready, error: %d", -errno);
 		FATAL_ERROR();
 		return;
 	}
 
-	cam_addr.sin_family = AF_INET;
-	cam_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	cam_addr.sin_port = htons(socket_port);
+        //TODO:Change All camaddr to dev_addr
+	self_addr.sin_family = AF_INET;
+	self_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	self_addr.sin_port = htons(socket_port);
+
+
+        target_addr.sin_family = AF_INET,
+        target_addr.sin_port = htons(60010),  // Convert port to network byte order
+        // Set the IP address (convert from presentation format to network format)
+        inet_pton(AF_INET, "192.168.50.199", &(target_addr.sin_addr));
 
 	#if defined(USE_TCP_SOCKET)
 		tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -149,7 +187,7 @@ static void net_sockets(void)
 			return;
 		}
 		
-		ret = bind(tcp_server_listen_fd, (struct sockaddr *)&cam_addr, sizeof(cam_addr));
+		ret = bind(tcp_server_listen_fd, (struct sockaddr *)&self_addr, sizeof(self_addr));
 		if (ret < 0)
 		{
 			LOG_ERR("bind, error: %d", -errno);
@@ -166,7 +204,7 @@ static void net_sockets(void)
 		}
 
 		while(1){
-			tcp_server_socket = accept(tcp_server_listen_fd, (struct sockaddr *)&pc_addr, &pc_addr_len);
+			tcp_server_socket = accept(tcp_server_listen_fd, (struct sockaddr *)&target_addr, &target_addr_len);
 			if (tcp_server_socket < 0)
 			{
 				LOG_ERR("accept, error: %d", -errno);
@@ -174,15 +212,16 @@ static void net_sockets(void)
 				return;
 			}
 			LOG_INF("Accepted connection from client\n");
-			inet_ntop(pc_addr.sin_family, &pc_addr.sin_addr, pc_addr_str, sizeof(pc_addr_str));
-			LOG_INF("Connect socket client to IP Address %s:%d\n", pc_addr_str, ntohs(pc_addr.sin_port));
+			inet_ntop(target_addr.sin_family, &target_addr.sin_addr, target_addr_str, sizeof(target_addr_str));
+			LOG_INF("Connect socket client to IP Address %s:%d\n", target_addr_str, ntohs(target_addr.sin_port));
 			// Handle the client connection
-			while((bytes_recived = recv(tcp_server_socket, socket_recv_buf, sizeof(socket_recv_buf),0))>0){
-				trigger_socket_rx_callback_if_set(socket_recv_buf);
+			while((socket_receive.len = recv(tcp_server_socket, socket_receive.buf, BUFFER_MAX_SIZE,0))>0){
+				k_msgq_put(&socket_recv_queue, &socket_receive, K_FOREVER);
+                //socket_util_trigger_rx_callback_if_set();
 			}
-			if (bytes_recived == -1) {
+			if (socket_receive.len == -1) {
 				LOG_ERR("Receiving failed");
-			} else if (bytes_recived == 0) {
+			} else if (socket_receive.len == 0) {
 				LOG_INF("Client disconnected.\n");
 			}
 			close(tcp_server_socket);
@@ -197,24 +236,24 @@ static void net_sockets(void)
 			FATAL_ERROR();
 			return;
 		}
-		ret = bind(udp_socket, (struct sockaddr *)&cam_addr, sizeof(cam_addr));
+		ret = bind(udp_socket, (struct sockaddr *)&self_addr, sizeof(self_addr));
 		if (ret < 0)
 		{
 			LOG_ERR("bind, error: %d", -errno);
 			FATAL_ERROR();
 			return;
 		}
-		while((bytes_recived = recvfrom(udp_socket, socket_recv_buf, sizeof(socket_recv_buf), 0, (struct sockaddr *)&pc_addr, &pc_addr_len))>0){
+		while((socket_receive.len = recvfrom(udp_socket, socket_receive.buf, BUFFER_MAX_SIZE, 0, (struct sockaddr *)&target_addr, &target_addr_len))>0){
 			if(socket_connected == false){
-				inet_ntop(pc_addr.sin_family, &pc_addr.sin_addr, pc_addr_str, sizeof(pc_addr_str));
-				LOG_INF("Connect socket client to IP Address %s:%d\n", pc_addr_str, ntohs(pc_addr.sin_port));
+				inet_ntop(target_addr.sin_family, &target_addr.sin_addr, target_addr_str, sizeof(target_addr_str));
+				LOG_INF("Connect socket client to IP Address %s:%d\n", target_addr_str, ntohs(target_addr.sin_port));
 				socket_connected=true;
 			}
-			trigger_socket_rx_callback_if_set(socket_recv_buf);
+			socket_util_trigger_rx_callback_if_set();
 		}
-		if (bytes_recived == -1) {
+		if (socket_receive.len == -1) {
 			LOG_ERR("Receiving failed");
-		} else if (bytes_recived == 0) {
+		} else if (socket_receive.len == 0) {
 			LOG_INF("Client disconnected.\n");
 		}
 
@@ -224,5 +263,18 @@ static void net_sockets(void)
 	#endif
 }
 
-K_THREAD_DEFINE(net_sockets_id, STACKSIZE, net_sockets, NULL, NULL, NULL,
-				PRIORITY, 0, 0);
+
+// K_THREAD_STACK_DEFINE(socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE);
+// static struct k_thread socket_util_thread_data;
+// static k_tid_t socket_util_thread_id;
+
+// int socket_util_init(void){
+//         int ret;
+//         /* Start thread to handle events from socket connection */
+//         socket_util_thread_id = k_thread_create(&socket_util_thread_data, socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE,
+//                                 (k_thread_entry_t)socket_util_thread,  NULL, NULL, NULL,
+// 			K_PRIO_PREEMPT(CONFIG_SOCKET_UTIL_THREAD_PRIO), 0, K_NO_WAIT);
+
+//         ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
+// 	return ret;
+// }

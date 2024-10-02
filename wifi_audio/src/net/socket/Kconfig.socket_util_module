@@ -10,6 +10,14 @@ rsource "Kconfig.defaults"
 #----------------------------------------------------------------------------#
 menu "Soket Utility Module"
 
+config SOCKET_STACK_SIZE
+	int "Stack size for encoder thread"
+	default 8192
+
+config SOCKET_UTIL_THREAD_PRIO
+	int "Thread priority for socket thread"
+	default 3
+
 choice SOCKET_TYPE
 	prompt "Choose socket type used for data transmission"
 	default USE_UDP_SOCKET

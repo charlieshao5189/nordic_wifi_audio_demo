@@ -30,7 +30,7 @@ static int leds_set(void)
 		return ret;
 	}
 
-#if (CONFIG_AUDIO_DEV == HEADSET)
+#if (CONFIG_AUDIO_HEADSET)
 	enum audio_channel channel;
 
 	channel_assignment_get(&channel);
@@ -40,9 +40,9 @@ static int leds_set(void)
 	} else {
 		ret = led_on(LED_APP_RGB, LED_COLOR_MAGENTA);
 	}
-#elif (CONFIG_AUDIO_DEV == GATEWAY)
+#elif (CONFIG_AUDIO_GATEWAY)
 	ret = led_on(LED_APP_RGB, LED_COLOR_GREEN);
-#endif /* (CONFIG_AUDIO_DEV == HEADSET) */
+#endif /* (CONFIG_AUDIO_HEADSET) */
 
 	if (ret) {
 		return ret;
@@ -53,7 +53,7 @@ static int leds_set(void)
 
 static int channel_assign_check(void)
 {
-#if (CONFIG_AUDIO_DEV == HEADSET) && CONFIG_AUDIO_HEADSET_CHANNEL_RUNTIME
+#if (CONFIG_AUDIO_HEADSET) && CONFIG_AUDIO_HEADSET_CHANNEL_RUNTIME
 	int ret;
 	bool pressed;
 
@@ -113,27 +113,27 @@ int nrf5340_audio_dk_init(void)
 		return ret;
 	}
 
-	if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
-		ret = sd_card_init();
-		if (ret != -ENODEV && ret != 0) {
-			LOG_ERR("Failed to initialize SD card");
-			return ret;
-		}
-	}
+	// if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
+	// 	ret = sd_card_init();
+	// 	if (ret != -ENODEV && ret != 0) {
+	// 		LOG_ERR("Failed to initialize SD card");
+	// 		return ret;
+	// 	}
+	// }
 
-	ret = leds_set();
-	if (ret) {
-		LOG_ERR("Failed to set LEDs");
-		return ret;
-	}
+	// ret = leds_set();
+	// if (ret) {
+	// 	LOG_ERR("Failed to set LEDs");
+	// 	return ret;
+	// }
 
-	if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
-		ret = sd_card_playback_init();
-		if (ret) {
-			LOG_ERR("Failed to initialize SD card playback");
-			return ret;
-		}
-	}
+	// if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
+	// 	ret = sd_card_playback_init();
+	// 	if (ret) {
+	// 		LOG_ERR("Failed to initialize SD card playback");
+	// 		return ret;
+	// 	}
+	// }
 
 	/* Use this to turn on 128 MHz clock for cpu_app */
 	ret = nrfx_clock_divider_set(NRF_CLOCK_DOMAIN_HFCLK, NRF_CLOCK_HFCLK_DIV_1);

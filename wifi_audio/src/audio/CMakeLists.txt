@@ -13,6 +13,7 @@ FILE(GLOB audio_sources
 
 target_sources(app PRIVATE
         ${audio_sources}
+        opus-1.2.1/arm/celt_pitch_xcorr_arm_gcc.s
         )
 
 target_include_directories(app PRIVATE 

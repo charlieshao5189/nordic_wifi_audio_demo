@@ -375,10 +375,12 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 		if (m_config.sw_codec != SW_CODEC_LC3) {
 			/* Check if LC3 is already initialized */
 			ret = sw_codec_lc3_init(NULL, NULL, CONFIG_AUDIO_FRAME_DURATION_US);
+                        LOG_INF("INFO for debugging4:%d", ret);
 			if (ret) {
 				return ret;
 			}
 		}
+                LOG_INF("INFO for debugging5");
 
 		if (sw_codec_cfg.encoder.enabled) {
 			if (m_config.encoder.enabled) {

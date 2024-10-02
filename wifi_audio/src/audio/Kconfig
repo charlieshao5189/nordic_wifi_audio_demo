@@ -324,6 +324,10 @@ module = WIFI_AUDIO_RX
 module-str = wifi-audio-rx
 source "subsys/logging/Kconfig.template.log_config"
 
+module = AUDIO_CODEC_OPUS
+module-str = audio-codec-opus
+source "subsys/logging/Kconfig.template.log_config"
+
 endmenu # Log levels
 
 #----------------------------------------------------------------------------#

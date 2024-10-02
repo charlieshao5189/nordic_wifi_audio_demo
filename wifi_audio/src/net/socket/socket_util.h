@@ -5,14 +5,26 @@
 
 #define CAM_COMMAND_MAX_SIZE 6
 
-typedef void (*socket_rx_callback_t)(uint8_t *data, uint16_t len);
-typedef int (*network_ready_callback_t)();
+enum wifi_modes {
+        WIFI_STATION_MODE = 0,
+        WIFI_SOFTAP_MODE,
+};
 
+typedef void (*net_util_socket_rx_callback_t)(uint8_t *data, uint16_t len);
 
-void set_socket_rx_callback(socket_rx_callback_t socket_rx_callback);
-void set_network_ready_callback(network_ready_callback_t network_ready_callback);
+void socket_util_set_rx_callback(net_util_socket_rx_callback_t socket_rx_callback);
+void socket_util_tx_data(uint8_t *data, size_t length);
+uint8_t process_socket_rx_buffer(char *udp_rx_buf, char *command_buf);
+void socket_util_thread(void);
 
-void socket_tx(const void *buf, size_t len);
-uint8_t process_socket_rx(char *udp_rx_buf, char *command_buf);
+/* Same as COMMAND_MAX_SIZE*/
+#define BUFFER_MAX_SIZE 1508
+
+typedef struct {
+    uint8_t buf[BUFFER_MAX_SIZE];
+    uint32_t len;
+} socket_receive_t;
+
+extern struct k_msgq socket_recv_queue;
 
 #endif

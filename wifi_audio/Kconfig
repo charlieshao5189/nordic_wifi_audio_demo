@@ -12,33 +12,38 @@ menu "Audio Stream Transceiver"
 config AUDIO_DEV
 	int "Select which device type to compile for. 1=HEADSET or 2=GATEWAY"
 	range 1 2
-	default 1
+	default 2
 	help
 	  Setting this variable to 1 selects that the project is compiled
 	  as a HEADSET device.
 	  Setting to 2 will compile as a GATEWAY.
           
-choice AUDIO_DEV
+choice AUDIO_DEV_ROLE
 	prompt "Choose device role from transmite, receiver and walkie talkie"
-	default AUDIO_TRASMITER
+	default AUDIO_GATEWAY
 
-config AUDIO_TRASMITER
+config AUDIO_GATEWAY
 	bool "Play audio stream transmiter role"
 
-config AUDIO_RECEIVER
+config AUDIO_HEADSET
 	bool "Play audio stream receiver role"
 
-# config AUDIO_WALKIE_TALKIE
-# 	bool "Play as walkie talkie role after connection build"
+endchoice #AUDIO_DEV_ROLE
 
-endchoice # AUDIO_DEV
+config AUDIO_WALKIE_TALKIE
+	bool "Enable walkie talkie feature, can enabled on both gateway and headset"
+        default n
 
-config AUDIO_USB_PASS_THROUGH
-	bool "Enable USB pass through"
-	default n
-	help
-	  Enable USB pass through feature.
+endmenu # "Audio Stream Transceiver"
 
+if (AUDIO_GATEWAY = y)
+rsource "wifi_audio_gateway/Kconfig.defaults"
+endif # AUDIO_DEV = 2
+if (AUDIO_HEADSET = y)
+rsource "wifi_audio_headset/Kconfig.defaults"
+endif #  AUDIO_DEV = 1
+
+# endchoice # AUDIO_DEV
 rsource "src/audio/Kconfig"
 rsource "src/net/Kconfig"
 rsource "src/drivers/Kconfig"
@@ -58,8 +63,5 @@ config PRINT_STACK_USAGE_MS
 	default 5000
 
 endmenu # Log levels
-
-#----------------------------------------------------------------------------#
-endmenu # "Audio Stream Transceiver"
 
 source "Kconfig.zephyr"

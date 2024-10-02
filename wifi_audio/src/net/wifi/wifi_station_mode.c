@@ -3,8 +3,6 @@
  *
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
-
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(wifi_station_mode, CONFIG_LOG_DEFAULT_LEVEL);
 
@@ -40,14 +38,14 @@ LOG_MODULE_REGISTER(wifi_station_mode, CONFIG_LOG_DEFAULT_LEVEL);
 #define L3_EVENT_MASK NET_EVENT_IPV4_DHCP_BOUND
 
 /**********External Resources START**************/
-extern struct k_sem wifi_net_ready;
+extern struct k_sem net_connect_ready;
 /**********External Resources END**************/
 
 /* Declare the callback structure for Wi-Fi events */
 static struct net_mgmt_event_callback wifi_mgmt_cb;
 static struct net_mgmt_event_callback net_mgmt_cb;
 
-/* Define the boolean wifi_connected and the semaphore wifi_net_ready */
+/* Define the boolean wifi_connected and the semaphore net_connect_ready */
 static bool wifi_connected;
 
 static int cmd_wifi_status(void)
@@ -115,7 +113,7 @@ static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb,
 			LOG_INF("WiFi disconnected");
 			wifi_connected = false;
 		}
-		k_sem_reset(&wifi_net_ready);
+		k_sem_reset(&net_connect_ready);
 		break;
 	default:
 		break;
@@ -147,7 +145,7 @@ static void net_mgmt_event_handler(struct net_mgmt_event_callback *cb,
 		LOG_INF("Network DHCP bound");
 		on_net_event_dhcp_bound(cb);
 		dk_set_led_on(DK_LED1);
-		k_sem_give(&wifi_net_ready);
+		k_sem_give(&net_connect_ready);
 		return;
 	}
 }
@@ -187,6 +185,6 @@ int wifi_station_mode_ready(void)
 #else
 	LOG_INF("\r\n\r\nRunnning on WiFi Station mode.\r\nPlease connect to router with 'wifi_cred' commands, use 'wifi_cred help' to get help.\r\n");
 #endif
-        k_sem_take(&wifi_net_ready, K_FOREVER);
+        k_sem_take(&net_connect_ready, K_FOREVER);
 	return 0;
 }
