@@ -6,6 +6,7 @@
 
 FILE(GLOB audio_sources 
         ${CMAKE_CURRENT_SOURCE_DIR}/*.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
         ${CMAKE_CURRENT_SOURCE_DIR}/opus-1.2.1/*.c
         ${CMAKE_CURRENT_SOURCE_DIR}/libc_opus/*.c
         )
@@ -17,6 +18,7 @@ target_sources(app PRIVATE
 
 target_include_directories(app PRIVATE 
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/opus-1.2.1
         ${CMAKE_CURRENT_SOURCE_DIR}/libc_opus
         )
