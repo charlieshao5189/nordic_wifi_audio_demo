@@ -311,7 +311,7 @@ int hw_codec_default_conf_enable(void)
 		return ret;
 	}
 
-#if ((CONFIG_AUDIO_DEV == GATEWAY) && (CONFIG_AUDIO_SOURCE_I2S))
+#if ((CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_I2S))
 	if (IS_ENABLED(CONFIG_WALKIE_TALKIE_DEMO)) {
 		ret = cs47l63_comm_reg_conf_write(pdm_mic_enable_configure,
 						  ARRAY_SIZE(pdm_mic_enable_configure));
@@ -324,15 +324,15 @@ int hw_codec_default_conf_enable(void)
 			return ret;
 		}
 	}
-#endif /* ((CONFIG_AUDIO_DEV == GATEWAY) && (CONFIG_AUDIO_SOURCE_I2S)) */
+#endif /* ((CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_I2S)) */
 
-#if ((CONFIG_AUDIO_DEV == HEADSET) && CONFIG_STREAM_BIDIRECTIONAL)
+#if ((CONFIG_AUDIO_HEADSET) && CONFIG_STREAM_BIDIRECTIONAL)
 	ret = cs47l63_comm_reg_conf_write(pdm_mic_enable_configure,
 					  ARRAY_SIZE(pdm_mic_enable_configure));
 	if (ret) {
 		return ret;
 	}
-#endif /* ((CONFIG_AUDIO_DEV == HEADSET) && CONFIG_STREAM_BIDIRECTIONAL) */
+#endif /* ((CONFIG_AUDIO_HEADSET) && CONFIG_STREAM_BIDIRECTIONAL) */
 
 	/* Toggle FLL to start up CS47L63 */
 	ret = cs47l63_comm_reg_conf_write(FLL_toggle, ARRAY_SIZE(FLL_toggle));
@@ -402,12 +402,12 @@ static int cmd_input(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	if ((CONFIG_AUDIO_DEV == GATEWAY) && IS_ENABLED(CONFIG_AUDIO_SOURCE_USB)) {
+	if (( IS_ENABLED(CONFIG_AUDIO_GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_SOURCE_USB)) {
 		shell_error(shell, "Can't select PDM mic if audio source is USB");
 		return -EINVAL;
 	}
 
-	if ((CONFIG_AUDIO_DEV == HEADSET) && !IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL)) {
+	if (IS_ENABLED(CONFIG_AUDIO_HEADSET) && !IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL)) {
 		shell_error(shell, "Can't select input if headset is not in bidirectional stream");
 		return -EINVAL;
 	}
@@ -421,7 +421,7 @@ static int cmd_input(const struct shell *shell, size_t argc, char **argv)
 
 	switch (idx) {
 	case LINE_IN: {
-		if (CONFIG_AUDIO_DEV == HEADSET) {
+		if (IS_ENABLED(CONFIG_AUDIO_HEADSET)) {
 			ret = cs47l63_comm_reg_conf_write(line_in_enable,
 							  ARRAY_SIZE(line_in_enable));
 			if (ret) {
@@ -446,7 +446,7 @@ static int cmd_input(const struct shell *shell, size_t argc, char **argv)
 		break;
 	}
 	case PDM_MIC: {
-		if (CONFIG_AUDIO_DEV == GATEWAY) {
+		if ( IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
 			ret = cs47l63_comm_reg_conf_write(pdm_mic_enable_configure,
 							  ARRAY_SIZE(pdm_mic_enable_configure));
 			if (ret) {

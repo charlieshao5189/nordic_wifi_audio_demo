@@ -14,7 +14,8 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(wifi_audio_transceiver)
 
-string(TIMESTAMP NRF5340_WIFI_AUDIO_COMP_DATE "%a %b %d %H:%M:%S %Y")
+string(TIMESTAMP NRF5340_AUDIO_CORE_APP_COMP_DATE "%a %b %d %H:%M:%S %Y")
+message(NRF5340_WIFI_AUDIO_COMP_DATE="${NRF5340_AUDIO_CORE_APP_COMP_DATE}")
 
 # Generate fw_info_app.c
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
@@ -26,10 +27,23 @@ target_sources(app PRIVATE
     ${CMAKE_BINARY_DIR}/fw_info_app.c
     )
 
-target_sources(app PRIVATE
-        src/main.c
-        )
-target_include_directories(app PRIVATE 
+#TODO:
+# Make device configuraable as either recevier and transmitter
+# Only keep (Reciver and Tramsitter) or (HEADSET and GATEWAY)
+
+if (CONFIG_AUDIO_HEADSET)
+	add_subdirectory(wifi_audio_headset)
+endif()
+
+if (CONFIG_AUDIO_GATEWAY)
+	add_subdirectory(wifi_audio_gateway)
+endif()
+# target_sources(app PRIVATE
+#         src/main.c
+#         )
+# target_include_directories(app PRIVATE 
+zephyr_library_include_directories(
+        include
         src
         #src/audio
         src/net
@@ -37,8 +51,12 @@ target_include_directories(app PRIVATE
         src/modules
         src/utils
         src/utils/macros
-        ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340
+        # ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340
         )
+
+        zephyr_library_include_directories(app PRIVATE
+        ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340)
+
 
 #add_subdirectory(src/audio)
 add_subdirectory(src/net)
@@ -128,17 +146,50 @@ target_include_directories(app PRIVATE
 
 # For OPUS
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
--DARM_MATH_CM4 \
--DUSE_ALLOCA \
--DHAVE_LRINT \
--DHAVE_LRINTF \
--DCUSTOM_SUPPORT \
--DVAR_ARRAYS \
--DOPUS_BUILD \
--DHAVE_CONFIG_H \
--g \
--mfpu=fpv5-sp-d16 \
--mfloat-abi=hard \
--mcpu=cortex-m33 \
--mthumb \
+ -DARM_MATH_CM4 \
+ -DDISABLE_FLOAT_API \
+ -DFIXED_POINT \
+ -DUSE_ALLOCA \
+ -DHAVE_LRINT \
+ -DHAVE_LRINTF \
+ -DOPUS_ARM_ASM \
+ -DOPUS_ARM_INLINE_EDSP \
+ -DOPUS_ARM_INLINE_MEDIA \
+ -DOPUS_ARM_MAY_HAVE_EDSP \
+ -DOPUS_ARM_PRESUME_EDSP \
+ -DCUSTOM_SUPPORT \
+ -DVAR_ARRAYS \
+ -DOPUS_BUILD \
+ -DHAVE_CONFIG_H \
+ -g \
 ")
+
+# # For OPUS
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
+# -DARM_MATH_CM4 \
+# -DUSE_ALLOCA \
+# -DHAVE_LRINT \
+# -DHAVE_LRINTF \
+# -DCUSTOM_SUPPORT \
+# -DVAR_ARRAYS \
+# -DOPUS_BUILD \
+# -DHAVE_CONFIG_H \
+# -g \
+# -mfpu=fpv5-sp-d16 \
+# -mfloat-abi=hard \
+# -mcpu=cortex-m33 \
+# -mthumb \
+# ")
+
+
+# build counter
+# Set a cached variable for the build count (default is 0)
+if(NOT DEFINED WIFI_AUDIO_CMAKE_BUILD_COUNT)
+    set(WIFI_AUDIO_CMAKE_BUILD_COUNT 0 CACHE STRING "Number of times the project has been built")
+endif()
+# Increment the build count
+math(EXPR WIFI_AUDIO_CMAKE_BUILD_COUNT "${WIFI_AUDIO_CMAKE_BUILD_COUNT} + 1")
+# Update the cached value
+set(WIFI_AUDIO_CMAKE_BUILD_COUNT ${WIFI_AUDIO_CMAKE_BUILD_COUNT} CACHE STRING "Number of times the project has been built" FORCE)
+# Print the current build count to the console
+message(STATUS "Build count: ${WIFI_AUDIO_CMAKE_BUILD_COUNT}")

@@ -9,23 +9,37 @@ SW: NCS v2.7.0
 
 The sample has following building options:
 
+
+
+WiFi Station Mode + Static SSID & PASSWORD + UDP
+Gateway:
+
+```
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_gateway --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE=overlay-wifi-sta-static.conf
+west build  -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_gateway --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE=overlay-wifi-sta-static.conf 
+west flash --erase -d build_sta_static_gateway
+```
+Headset:
+```
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_headset --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf"
+west build -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_headset --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf"
+west flash --erase -d build_sta_static_headset
+
+```
+
 WiFi Station Mode + WiFi CREDENTIALS SHELL(for SSID+Password Input) + UDP
 
 ```
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta --sysbuild -- -DSHIELD=nrf7002ek
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_gateway --sysbuild -- -DSHIELD=nrf7002ek   
+west build  -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_gateway --sysbuild -- -DSHIELD=nrf7002ek   
+west flash --erase -d build_sta_static_gateway
 ```
+Headset:
+```
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_headset --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE=overlay-audio-headset.conf
+west build -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static_headset --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE=overlay-audio-headset.conf
+west flash --erase -d build_sta_static_headset
 
-WiFi Station Mode + Static SSID & PASSWORD + UDP
-
-```
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_sta_static --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-wifi-sta-static.conf
-```
-
-WiFi SoftAP Mode + UDP
-
-```
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_softap --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-wifi-softap.conf 
-```
 
 Use `-DEXTRA_CONF_FILE=overlay-tcp.conf` to switch from UDP socket to TCP socket.
 

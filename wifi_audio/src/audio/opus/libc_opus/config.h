@@ -28,7 +28,7 @@
 //  <24000=>24 kHz
 //  <32000=>32 kHz
 /**@brief Sampling Frequency */
-#define CONFIG_AUDIO_SAMPLING_FREQUENCY 16000
+#define CONFIG_AUDIO_SAMPLING_FREQUENCY 48000
 //#define CONFIG_AUDIO_SAMPLING_FREQUENCY 24000
 
 // <h> Opus Options
@@ -111,13 +111,13 @@
 //  <40=>40 ms
 //  <60=>60 ms
 /**@brief Opus Options: Audio Frame Size */
-#define CONFIG_AUDIO_FRAME_SIZE_MS 5
+#define CONFIG_AUDIO_FRAME_SIZE_MS 10
 
 
 #define CONFIG_LOSS_PERC 10
 
 
-#define CONFIG_CHANNELS 1
+#define CONFIG_CHANNELS 2
 
 
 # define CONFIG_OPUS_VBR_ENABLED            ((CONFIG_OPUS_BITRATE_CFG & 0x01) == 0x00)
