@@ -10,6 +10,10 @@ rsource "Kconfig.defaults"
 #----------------------------------------------------------------------------#
 menu "Audio"
 
+config USB_PASSTHROUGH
+  bool "pass usb trough to line out when in gateway mode"
+  default n
+
 choice AUDIO_FRAME_DURATION
 	prompt "Select frame duration - 7.5 ms frame duration is not tested"
 	default AUDIO_FRAME_DURATION_10_MS

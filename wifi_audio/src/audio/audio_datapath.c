@@ -627,7 +627,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	/********** I2S TX **********/
 	static uint8_t *tx_buf;
 
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_HEADSET)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_HEADSET) || IS_ENABLED(CONFIG_USB_PASSTHROUGH)) {
 		if (tx_buf_released != NULL) {
 			/* Double buffered index */
 			uint32_t next_out_blk_idx = NEXT_IDX(ctrl_blk.out.cons_blk_idx);
@@ -736,7 +736,7 @@ static void audio_datapath_i2s_start(void)
 	uint32_t *rx_buf_two = NULL;
 
 	/* TX */
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_HEADSET)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || IS_ENABLED(CONFIG_AUDIO_HEADSET) || IS_ENABLED(CONFIG_USB_PASSTHROUGH)) {
 		ctrl_blk.out.cons_blk_idx = PREV_IDX(ctrl_blk.out.cons_blk_idx);
 		tx_buf_one = (uint8_t *)&ctrl_blk.out
 				     .fifo[ctrl_blk.out.cons_blk_idx * BLK_STEREO_NUM_SAMPS];

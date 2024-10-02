@@ -128,6 +128,10 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	static size_t pcm_block_size;
 	static uint32_t test_tone_finite_pos;
 
+		/* NOTE: added for usb pass trhough */
+	struct ble_iso_data *iso_received;
+	size_t iso_received_size;
+
 	while (1) {
 		/* Don't start encoding until the stream needing it has started */
 		ret = k_poll(&encoder_evt, 1, K_FOREVER);
@@ -196,6 +200,9 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
                         streamctrl_send(p_frame->data, p_frame->data_size,NULL);
                 # else
                         streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES,NULL);
+												#if (CONFIG_USB_PASSTHROUGH)
+													audio_datapath_stream_out(pcm_raw_data, FRAME_SIZE_BYTES, NULL, NULL, NULL);	// NOTE: copy sendt data to USB
+												#endif
                 # endif #CONFIG_CODEC_OPUS
                
 		STACK_USAGE_PRINT("encoder_thread", &encoder_thread_data);
@@ -423,6 +430,12 @@ void audio_system_start(void)
 #if (IS_ENABLED(CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_USB))
 	ret = audio_usb_start(&fifo_tx, &fifo_rx);
 	ERR_CHK(ret);
+	#if (CONFIG_USB_PASSTHROUGH)
+		ret = hw_codec_default_conf_enable();
+		ERR_CHK(ret);
+		ret = audio_datapath_start(&fifo_rx);
+		ERR_CHK(ret);
+	#endif
 #else
 	ret = hw_codec_default_conf_enable();
 	ERR_CHK(ret);
@@ -445,6 +458,13 @@ void audio_system_stop(void)
 
 #if (IS_ENABLED(CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_USB))
 	audio_usb_stop();
+	#if (CONFIG_USB_PASSTHROUGH)
+		ret = hw_codec_soft_reset();
+		ERR_CHK(ret);
+
+		ret = audio_datapath_stop();
+		ERR_CHK(ret);
+	#endif
 #else
 	ret = hw_codec_soft_reset();
 	ERR_CHK(ret);
@@ -494,7 +514,20 @@ int audio_system_init(void)
 		LOG_ERR("Failed to initialize USB: %d", ret);
 		return ret;
 	}
-#else
+	#if (CONFIG_USB_PASSTHROUGH)
+		LOG_WRN("USB passthrough enabled");
+		ret = audio_datapath_init();
+		if (ret) {
+			LOG_ERR("Failed to initialize audio datapath: %d", ret);
+			return ret;
+		}
+		ret = hw_codec_init();
+		if (ret) {
+			LOG_ERR("Failed to initialize HW codec: %d", ret);
+			return ret;
+		}
+	#endif /* CONFIG_USB_PASSTHROUGH */
+#else /* CONFIG_AUDIO_GATEWAY && CONFIG_AUDIO_SOURCE_USB */
 	ret = audio_datapath_init();
 	if (ret) {
 		LOG_ERR("Failed to initialize audio datapath: %d", ret);
