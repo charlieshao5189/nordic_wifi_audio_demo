@@ -144,42 +144,42 @@ target_include_directories(app PRIVATE
 )
 
 
-# For OPUS
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
- -DARM_MATH_CM4 \
- -DDISABLE_FLOAT_API \
- -DFIXED_POINT \
- -DUSE_ALLOCA \
- -DHAVE_LRINT \
- -DHAVE_LRINTF \
- -DOPUS_ARM_ASM \
- -DOPUS_ARM_INLINE_EDSP \
- -DOPUS_ARM_INLINE_MEDIA \
- -DOPUS_ARM_MAY_HAVE_EDSP \
- -DOPUS_ARM_PRESUME_EDSP \
- -DCUSTOM_SUPPORT \
- -DVAR_ARRAYS \
- -DOPUS_BUILD \
- -DHAVE_CONFIG_H \
- -g \
-")
-
 # # For OPUS
 # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
-# -DARM_MATH_CM4 \
-# -DUSE_ALLOCA \
-# -DHAVE_LRINT \
-# -DHAVE_LRINTF \
-# -DCUSTOM_SUPPORT \
-# -DVAR_ARRAYS \
-# -DOPUS_BUILD \
-# -DHAVE_CONFIG_H \
-# -g \
-# -mfpu=fpv5-sp-d16 \
-# -mfloat-abi=hard \
-# -mcpu=cortex-m33 \
-# -mthumb \
+#  -DARM_MATH_CM4 \
+#  -DDISABLE_FLOAT_API \
+#  -DFIXED_POINT \
+#  -DUSE_ALLOCA \
+#  -DHAVE_LRINT \
+#  -DHAVE_LRINTF \
+#  -DOPUS_ARM_ASM \
+#  -DOPUS_ARM_INLINE_EDSP \
+#  -DOPUS_ARM_INLINE_MEDIA \
+#  -DOPUS_ARM_MAY_HAVE_EDSP \
+#  -DOPUS_ARM_PRESUME_EDSP \
+#  -DCUSTOM_SUPPORT \
+#  -DVAR_ARRAYS \
+#  -DOPUS_BUILD \
+#  -DHAVE_CONFIG_H \
+#  -g \
 # ")
+
+# For OPUS
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
+-DARM_MATH_CM4 \
+-DUSE_ALLOCA \
+-DHAVE_LRINT \
+-DHAVE_LRINTF \
+-DCUSTOM_SUPPORT \
+-DVAR_ARRAYS \
+-DOPUS_BUILD \
+-DHAVE_CONFIG_H \
+-g \
+-mfpu=fpv5-sp-d16 \
+-mfloat-abi=hard \
+-mcpu=cortex-m33 \
+-mthumb \
+")
 
 
 # build counter
