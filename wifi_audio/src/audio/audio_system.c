@@ -122,7 +122,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	size_t encoded_data_size = 0;
 
 	void *tmp_pcm_raw_data[CONFIG_FIFO_FRAME_SPLIT_NUM];
-	char pcm_raw_data[FRAME_SIZE_BYTES];
+	static uint8_t pcm_raw_data[FRAME_SIZE_BYTES];
 
 	static uint8_t *encoded_data;
 	static size_t pcm_block_size;
@@ -188,15 +188,16 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 		// }
                 // LOG_INF("pcm_raw_data %zu bytes", (size_t)FRAME_SIZE_BYTES);  // Use %zu for size_t values
                 // LOG_HEXDUMP_INF(pcm_raw_data, FRAME_SIZE_BYTES, "pcm_raw_data(HEX):");
+
                 # ifdef CONFIG_CODEC_OPUS
                         m_audio_frame_t *p_frame = (m_audio_frame_t *) &frame_OPUS_encode;
                         drv_audio_codec_encode((int16_t *) pcm_raw_data, p_frame);
-                        LOG_INF("opus data: %zu bytes", (size_t)p_frame->data_size);  // Use %zu for size_t values
+                        LOG_INF("opus data: %d bytes", p_frame->data_size);  // Use %zu for size_t values
                         // LOG_HEXDUMP_INF(p_frame->data,, FRAME_SIZE_BYTES, "p_frame->data,(HEX):");
-                        streamctrl_send(p_frame->data, p_frame->data_size,NULL);
+                        streamctrl_send(p_frame->data, p_frame->data_size,2);
                 # else
                         streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES,NULL);
-                # endif #CONFIG_CODEC_OPUS
+                # endif //CONFIG_CODEC_OPUS
                
 		STACK_USAGE_PRINT("encoder_thread", &encoder_thread_data);
 	}

@@ -99,7 +99,7 @@ uint8_t process_socket_rx_buffer(char *socket_rx_buf, char *command_buf)
 
 static void socket_util_trigger_rx_callback_if_set()
 {
-        // LOG_DBG("Received %d bytes", socket_receive.len);
+        LOG_DBG("Socket received %d bytes", socket_receive.len);
         // LOG_HEXDUMP_DBG(socket_receive.buf, socket_receive.len, "Buffer contents(HEX):");
 	if (socket_rx_cb != 0) {
 		socket_rx_cb(socket_receive.buf, socket_receive.len);
@@ -108,7 +108,7 @@ static void socket_util_trigger_rx_callback_if_set()
 	}
 }
 
-void socket_util_tx_data(uint8_t *data, size_t length)
+int socket_util_tx_data(uint8_t *data, size_t length)
 {
 
     size_t chunk_size = 1024;
@@ -139,6 +139,7 @@ void socket_util_tx_data(uint8_t *data, size_t length)
         data += bytes_sent;
         length -= bytes_sent;
     }
+    return bytes_sent;
 }
 
 /* Thread to setup WiFi, Sockets step by step */

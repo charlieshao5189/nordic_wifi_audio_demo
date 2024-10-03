@@ -51,14 +51,9 @@ DATA_FIFO_DEFINE(wifi_audio_rx, CONFIG_BUF_WIFI_RX_PACKET_NUM, sizeof(struct aud
 
 
 # endif
-
-/* Callback for handling ISO RX */
-void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size)
-// void wifi_audio_rx_data_handler(uint8_t const *const p_data, size_t data_size, bool bad_frame,
-// 			      uint32_t sdu_ref, enum audio_channel channel_index,
-// 			      size_t desired_data_size)
-{
-	int ret;
+static int16_t rx_data_continute_count=0;
+void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
+        int ret;
 	uint32_t blocks_alloced_num, blocks_locked_num;
 	struct audio_pcm_data_t *data_received = NULL;
 	static struct rx_stats rx_stats[AUDIO_CH_NUM];
@@ -129,6 +124,7 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size)
 		ERR_CHK(ret);
 
 		data_fifo_block_free(&wifi_audio_rx, stale_data);
+                rx_data_continute_count=0;
 	}
 
 	ret = data_fifo_pointer_first_vacant_get(&wifi_audio_rx, (void *)&data_received, K_NO_WAIT);
@@ -151,28 +147,59 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size)
 	ERR_CHK_MSG(ret, "Failed to lock block");
 }
 
+
+#define TOTAL_PACKET_SIZE (1024 + 896)  // Total size of the two packets to be assembled
+#define MAX_PACKET_SIZE 1920            // Maximum packet size after assembly (1024 + 896)
+
+void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
+    static uint8_t assembled_data[MAX_PACKET_SIZE];  // Buffer to hold the assembled data
+    static size_t assembled_size = 0;                // Keeps track of how much data has been assembled
+
+    // Ensure that the incoming data won't overflow the buffer
+    if (assembled_size + data_size > MAX_PACKET_SIZE) {
+        LOG_INF("Data overflow: Incoming data exceeds buffer capacity.\n");
+        return;
+    }
+
+    // Copy the incoming data into the assembly buffer
+    memcpy(assembled_data + assembled_size, p_data, data_size);
+    assembled_size += data_size;
+
+    // Check if the buffer contains the full packet (1024 + 896 = 1920 bytes)
+    if (assembled_size == TOTAL_PACKET_SIZE) {
+        // Full packet has been received, process the assembled data
+        LOG_INF("Assembled complete packet of size %zu\n", assembled_size);
+        // You can now process the assembled data here...
+        audio_data_frame_process(assembled_data, assembled_size) ;
+        // Reset the buffer for future packets
+        assembled_size = 0;
+    } else {
+        // Still waiting for more data
+        LOG_INF("Waiting for more data... Assembled so far: %zu bytes\n", assembled_size);
+    }
+}	
+
+
 /**
  * @brief	Receive data from BLE through a k_fifo and send to USB or audio datapath.
  */
 static void audio_datapath_thread(void *dummy1, void *dummy2, void *dummy3)
 {
 	int ret;
-	struct ble_iso_data *iso_received = NULL;
+	struct audio_pcm_data_t *iso_received = NULL;
 	size_t iso_received_size;
 
 	while (1) {
 		ret = data_fifo_pointer_last_filled_get(&wifi_audio_rx, (void *)&iso_received,
-							&iso_received_size, K_FOREVER);
+							iso_received->size, K_FOREVER);
 		ERR_CHK(ret);
 
 		if (IS_ENABLED(CONFIG_AUDIO_SOURCE_USB) && IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
-			ret = audio_system_decode(iso_received->data, iso_received->data_size,
-						  iso_received->bad_frame);
+			// ret = audio_system_decode(iso_received->data, iso_received->data_size,
+			// 			  iso_received->bad_frame);
 			ERR_CHK(ret);
 		} else {
-			audio_datapath_stream_out(iso_received->data, iso_received->data_size,
-						  iso_received->sdu_ref, iso_received->bad_frame,
-						  iso_received->recv_frame_ts);
+			audio_datapath_stream_out(iso_received->data, iso_received->size);
 		}
 		data_fifo_block_free(&wifi_audio_rx, (void *)iso_received);
 

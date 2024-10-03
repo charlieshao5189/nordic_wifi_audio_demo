@@ -78,6 +78,7 @@ static void data_write(const struct device *dev)
 }
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
 
+static uint32_t usb_data_continute_count=0;
 static void data_received(const struct device *dev, struct net_buf *buffer, size_t size)
 {
 	int ret;
@@ -110,7 +111,7 @@ static void data_received(const struct device *dev, struct net_buf *buffer, size
 
 		rx_num_overruns++;
 		if ((rx_num_overruns % 100) == 1) {
-			LOG_WRN("USB RX overrun. Num: %d", rx_num_overruns);
+			LOG_DBG("USB RX overrun. Num: %d", rx_num_overruns);
 		}
 
 		ret = data_fifo_pointer_last_filled_get(fifo_rx, &temp, &temp_size, K_NO_WAIT);
@@ -119,15 +120,17 @@ static void data_received(const struct device *dev, struct net_buf *buffer, size
 		data_fifo_block_free(fifo_rx, temp);
 
 		ret = data_fifo_pointer_first_vacant_get(fifo_rx, &data_in, K_NO_WAIT);
+                usb_data_continute_count=0;
 	}
 
 	ERR_CHK_MSG(ret, "RX failed to get block");
 
 	memcpy(data_in, buffer->data, size);
 
-        //LOG_DBG("usb audio data_in %zu bytes", (size_t)size);  // Use %zu for size_t values
+        // LOG_INF("usb audio data_in %zu bytes", (size_t)size);  // Use %zu for size_t values
+        //LOG_INF("usb audio data continute count %d", usb_data_continute_count);  // Use %zu for size_t values
+        usb_data_continute_count++;
         //LOG_HEXDUMP_DBG(data_in, 8, "usb audio data_in(HEX):");
-
 	ret = data_fifo_block_lock(fifo_rx, &data_in, size);
 	ERR_CHK_MSG(ret, "Failed to lock block");
 

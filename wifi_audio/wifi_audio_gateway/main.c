@@ -129,14 +129,14 @@ void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
 		// 		LOG_WRN("Problem with sending LE audio data, ret: %d", ret);
 		// 	}
 		// }
-                audio_system_encoder_stop();
+                //audio_system_encoder_stop();
                 // socket_util_tx_data(socket_head_and_tail, 2);
                 // socket_util_tx_data(&socket_head_and_tail[2], 1);
                 // socket_util_tx_data((uint8_t *)&size, sizeof(size_t));
                 socket_util_tx_data(data, size);
                 // socket_util_tx_data(&socket_head_and_tail[3], 2);
                 //LOG_INF("audio frame send count: %d", count);
-                audio_system_encoder_start();
+                //audio_system_encoder_start();
                
 		prev_ret = ret;
 	}
@@ -393,8 +393,8 @@ int main(void)
 		48000,
 		9600, 0);
 	ERR_CHK_MSG(ret, "Failed to set sample- and bitrate");
-        // audio_codec_opus_init();
-         audio_system_start();
+        audio_codec_opus_init();
+        audio_system_start();
 
         LOG_INF("zbus_subscribers_create"); 
         ret = zbus_subscribers_create();
