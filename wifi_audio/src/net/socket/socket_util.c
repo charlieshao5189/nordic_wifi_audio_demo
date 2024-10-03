@@ -176,8 +176,9 @@ void socket_util_thread(void)
         target_addr.sin_family = AF_INET,
         target_addr.sin_port = htons(60010),  // Convert port to network byte order
         // Set the IP address (convert from presentation format to network format)
-        inet_pton(AF_INET, "192.168.50.199", &(target_addr.sin_addr));
-
+        #if defined(CONFIG_SOCKET_TARGET_ADDR)
+                inet_pton(AF_INET,CONFIG_SOCKET_TARGET_ADDR, &(target_addr.sin_addr));
+        #endif
 	#if defined(USE_TCP_SOCKET)
 		tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		

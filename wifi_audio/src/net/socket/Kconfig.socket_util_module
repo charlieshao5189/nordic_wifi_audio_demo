@@ -18,6 +18,12 @@ config SOCKET_UTIL_THREAD_PRIO
 	int "Thread priority for socket thread"
 	default 3
 
+config SOCKET_TARGET_ADDR
+	string "Target socket address socket to connect with"
+        help
+	  Set target socket address socket to connect with.
+
+
 choice SOCKET_TYPE
 	prompt "Choose socket type used for data transmission"
 	default USE_UDP_SOCKET

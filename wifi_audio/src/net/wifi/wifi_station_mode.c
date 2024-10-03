@@ -129,6 +129,7 @@ static void on_net_event_dhcp_bound(struct net_mgmt_event_callback *cb)
 	char dhcp_info[128];
 	net_addr_ntop(AF_INET, addr, dhcp_info, sizeof(dhcp_info));
 	LOG_INF("\r\n\r\nWiFi is ready on nRF5340 Audio DK + nRF7002EK. Try to connect the socket(udp by default) to address %s:60010.\r\n", dhcp_info);
+        
 }
 
 /* Define the callback function for network events */
