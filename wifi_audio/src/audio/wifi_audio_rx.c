@@ -157,7 +157,8 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
 
     // Ensure that the incoming data won't overflow the buffer
     if (assembled_size + data_size > MAX_PACKET_SIZE) {
-        LOG_INF("Data overflow: Incoming data exceeds buffer capacity.\n");
+        LOG_WRN("Data overflow: Incoming data exceeds buffer capacity.\r\n assembeled_size: %zu, data_size: %zu\n", assembled_size, data_size);
+				assembled_size = 0; // Reset the buffer, discards the data
         return;
     }
 
