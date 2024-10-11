@@ -1,0 +1,3 @@
+[submodule "wifi_audio/src/audio/opus"]
+	path = wifi_audio/src/audio/opus
+	url = https://github.com/xiph/opus.git

@@ -21,7 +21,7 @@
 #include "macros_common.h"
 #include "audio_system.h"
 #include "audio_datapath.h"
-#include "audio_codec_opus_api.h"
+// #include "audio_codec_opus_api.h"
 #include "fw_info_app.h"
 #include "streamctrl.h"
 #include "socket_util.h"
@@ -363,7 +363,7 @@ int main(void)
 		9600, 0);
 	ERR_CHK_MSG(ret, "Failed to set sample- and bitrate");
 
-        audio_codec_opus_init();
+        // audio_codec_opus_init();
         audio_system_start();
 
         ret = zbus_subscribers_create();

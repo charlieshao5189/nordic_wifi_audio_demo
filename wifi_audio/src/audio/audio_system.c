@@ -12,6 +12,8 @@
 #include <contin_array.h>
 #include <pcm_stream_channel_modifier.h>
 #include <tone.h>
+#include <opus.h>
+#include <opus_defines.h>
 
 #include "macros_common.h"
 #include "sw_codec_select.h"
@@ -49,6 +51,7 @@ static struct sw_codec_config sw_codec_cfg;
 /* Buffer which can hold max 1 period test tone at 1000 Hz */
 static int16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 1000];
 static size_t test_tone_size;
+OpusEncoder *encoder;
 
 static bool sample_rate_valid(uint32_t sample_rate_hz)
 {
@@ -61,11 +64,11 @@ static bool sample_rate_valid(uint32_t sample_rate_hz)
 
 static void audio_gateway_configure(void)
 {
-	if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
-		sw_codec_cfg.sw_codec = SW_CODEC_LC3;
-	} else {
-		ERR_CHK_MSG(-EINVAL, "No codec selected");
-	}
+	// if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
+	// 	sw_codec_cfg.sw_codec = SW_CODEC_LC3;
+	// } else {
+	// 	ERR_CHK_MSG(-EINVAL, "No codec selected");
+	// }
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
 	sw_codec_cfg.decoder.num_ch = 1;
@@ -84,11 +87,11 @@ static void audio_gateway_configure(void)
 
 static void audio_headset_configure(void)
 {
-	if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
-		sw_codec_cfg.sw_codec = SW_CODEC_LC3;
-	} else {
-		ERR_CHK_MSG(-EINVAL, "No codec selected");
-	}
+	// if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
+	// 	sw_codec_cfg.sw_codec = SW_CODEC_LC3;
+	// } else {
+	// 	ERR_CHK_MSG(-EINVAL, "No codec selected");
+	// }
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
 	sw_codec_cfg.encoder.num_ch = 1;
@@ -104,13 +107,11 @@ static void audio_headset_configure(void)
 	}
 }
 
-// # define CONFIG_CODEC_OPUS
-
-# ifdef CONFIG_CODEC_OPUS
-#include "audio_codec_opus_api.h"
-static m_audio_frame_t frame_OPUS_encode;
-// static m_audio_frame_t frame_OPUS_decode = {.data_size = 0};
-# endif
+// #define CONFIG_CODEC_OPUS
+#if defined(CONFIG_CODEC_OPUS)
+size_t encoded_bytes;  // Variable to hold the size of encoded data
+opus_int16 *input_buffer; // Cast raw PCM data to the correct type
+#endif //CONFIG_CODEC_OPUS
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
 {
@@ -190,11 +191,17 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
                 // LOG_HEXDUMP_INF(pcm_raw_data, FRAME_SIZE_BYTES, "pcm_raw_data(HEX):");
 
                 # ifdef CONFIG_CODEC_OPUS
-                        m_audio_frame_t *p_frame = (m_audio_frame_t *) &frame_OPUS_encode;
-                        drv_audio_codec_encode((int16_t *) pcm_raw_data, p_frame);
-                        LOG_INF("opus data: %d bytes", p_frame->data_size);  // Use %zu for size_t values
-                        // LOG_HEXDUMP_INF(p_frame->data,, FRAME_SIZE_BYTES, "p_frame->data,(HEX):");
-                        streamctrl_send(p_frame->data, p_frame->data_size,2);
+                        input_buffer = (opus_int16 *) pcm_raw_data;
+                        unsigned char opus_output[1920]; // Define a buffer for the output
+
+                        // Encode the audio data using Opus
+                        encoded_bytes = opus_encode(encoder, input_buffer, 480, opus_output, sizeof(opus_output));
+                        if (encoded_bytes < 0) {
+                        LOG_ERR("Opus encoding failed: %s", opus_strerror(encoded_bytes));
+                        } else {
+                        LOG_INF("Opus data: %zu bytes", encoded_bytes); // Log the size of the encoded OPUS data
+                        streamctrl_send(opus_output, encoded_bytes, 2); // Send the encoded OPUS data
+                        }
                 # else
                         streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES,NULL);
                 # endif //CONFIG_CODEC_OPUS
@@ -510,6 +517,29 @@ int audio_system_init(void)
 #endif
 	k_poll_signal_init(&encoder_sig);
 
+#ifdef CONFIG_AUDIO_GATEWAY  // Check if CONFIG_AUDIO_GATEWAY is defined
+        // LOG_INF("encoder %d", opus_encoder_get_size(2));
+        // encoder = opus_encoder_create(48000, 2, OPUS_APPLICATION_AUDIO, &ret); // Initialize with 48 kHz, stereo audio
+        // if (ret != OPUS_OK) {
+        //         LOG_ERR("Failed to create opus_encoder: %d", ret);
+        // }
+        // ret = opus_encoder_ctl(encoder, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_10_MS));
+        // if (ret != OPUS_OK) {
+        //         LOG_ERR("Failed to set OPUS_SET_EXPERT_FRAME_DURATION: %d", ret);
+        // }
+        // ret = opus_encoder_ctl(encoder, OPUS_SET_BITRATE(16000));
+        // if (ret != OPUS_OK) {
+        //         LOG_ERR("Failed to set OPUS_SET_BITRATE: %d", ret);
+        // }
+        // ret = opus_encoder_ctl(encoder, OPUS_SET_LSB_DEPTH(16));
+        // if (ret != OPUS_OK) {
+        //         LOG_ERR("Failed to set OPUS_SET_LSB_DEPTH: %d", ret);
+        // }
+        // ret = opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(4));
+        // if (ret != OPUS_OK) {
+        //         LOG_ERR("Failed to set OPUS_SET_LSB_DEPTH: %d", ret);
+        // }
+#endif
 	return 0;
 }
 

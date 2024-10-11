@@ -7,6 +7,15 @@ A simple sample to demo Wi-Fi and UDP/TCP scoket connection for audio through Wi
 HW: nRF5340 Audio DK + nRF7002EK
 SW: NCS v2.7.0
 
+# RepositorySetup:
+´´´
+git clone https://github.com/charlieshao5189/nordic_wifi_audio_demo.git
+cd wifi_audio/src/audio/opus
+git submodule update --init
+git checkout v1.5.2
+´´´
+
+# Building
 The sample has following building options:
 
 
@@ -42,5 +51,3 @@ west flash --erase -d build_sta_static_headset
 
 
 Use `-DEXTRA_CONF_FILE=overlay-tcp.conf` to switch from UDP socket to TCP socket.
-
-

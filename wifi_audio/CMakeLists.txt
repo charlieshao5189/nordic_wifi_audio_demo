@@ -73,28 +73,6 @@ if (CONFIG_HW_CODEC_CIRRUS_LOGIC)
     endif()
 endif()
 
-
-# For Opus building
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
- -DARM_MATH_CM4 \
- -DDISABLE_FLOAT_API \
- -DFIXED_POINT \
- -DUSE_ALLOCA \
- -DHAVE_LRINT \
- -DHAVE_LRINTF \
- -DOPUS_ARM_ASM \
- -DOPUS_ARM_INLINE_EDSP \
- -DOPUS_ARM_INLINE_MEDIA \
- -DOPUS_ARM_MAY_HAVE_EDSP \
- -DOPUS_ARM_PRESUME_EDSP \
- -DCUSTOM_SUPPORT \
- -DVAR_ARRAYS \
- -DOPUS_BUILD \
- -DHAVE_CONFIG_H \
- -g \
-")
-
-
 # build counter
 # Set a cached variable for the build count (default is 0)
 if(NOT DEFINED WIFI_AUDIO_CMAKE_BUILD_COUNT)
