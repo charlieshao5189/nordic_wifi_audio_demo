@@ -26,11 +26,6 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/utils/fw_info_app.c.in"
 target_sources(app PRIVATE
     ${CMAKE_BINARY_DIR}/fw_info_app.c
     )
-
-#TODO:
-# Make device configuraable as either recevier and transmitter
-# Only keep (Reciver and Tramsitter) or (HEADSET and GATEWAY)
-
 if (CONFIG_AUDIO_HEADSET)
 	add_subdirectory(wifi_audio_headset)
 endif()
@@ -38,10 +33,7 @@ endif()
 if (CONFIG_AUDIO_GATEWAY)
 	add_subdirectory(wifi_audio_gateway)
 endif()
-# target_sources(app PRIVATE
-#         src/main.c
-#         )
-# target_include_directories(app PRIVATE 
+# target_include_directories(app PUBLIC
 zephyr_library_include_directories(
         include
         src
@@ -54,9 +46,8 @@ zephyr_library_include_directories(
         # ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340
         )
 
-        zephyr_library_include_directories(app PRIVATE
-        ${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340)
-
+zephyr_library_include_directories(app PRIVATE
+${ZEPHYR_NRF_MODULE_DIR}/boards/arm/nrf5340_audio_dk_nrf5340)
 
 add_subdirectory(src/audio)
 add_subdirectory(src/net)

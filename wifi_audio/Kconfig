@@ -7,16 +7,7 @@
 #----------------------------------------------------------------------------#
 rsource "Kconfig.defaults"
 
-menu "Audio Stream Transceiver"
-
-config AUDIO_DEV
-	int "Select which device type to compile for. 1=HEADSET or 2=GATEWAY"
-	range 1 2
-	default 2
-	help
-	  Setting this variable to 1 selects that the project is compiled
-	  as a HEADSET device.
-	  Setting to 2 will compile as a GATEWAY.
+menu "WiFi Audio Transceiver"
           
 choice AUDIO_DEV_ROLE
 	prompt "Choose device role from transmite, receiver and walkie talkie"
@@ -38,12 +29,12 @@ endmenu # "Audio Stream Transceiver"
 
 if (AUDIO_GATEWAY = y)
 rsource "wifi_audio_gateway/Kconfig.defaults"
-endif # AUDIO_DEV = 2
+endif
+
 if (AUDIO_HEADSET = y)
 rsource "wifi_audio_headset/Kconfig.defaults"
-endif #  AUDIO_DEV = 1
+endif 
 
-# endchoice # AUDIO_DEV
 rsource "src/audio/Kconfig"
 rsource "src/net/Kconfig"
 rsource "src/drivers/Kconfig"

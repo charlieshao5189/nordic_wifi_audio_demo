@@ -12,9 +12,6 @@
 #include <contin_array.h>
 #include <pcm_stream_channel_modifier.h>
 #include <tone.h>
-#include <opus.h>
-#include <opus_defines.h>
-
 #include "macros_common.h"
 #include "sw_codec_select.h"
 #include "audio_datapath.h"
@@ -22,6 +19,11 @@
 #include "hw_codec.h"
 #include "audio_usb.h"
 #include "streamctrl.h"
+
+#if (CONFIG_SW_CODEC_OPUS)
+#include "opus_interface.h"
+ENC_Opus_ConfigTypeDef EncConfigOpus;   /*!< opus encode configuration.*/
+# endif
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_system, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
@@ -51,7 +53,6 @@ static struct sw_codec_config sw_codec_cfg;
 /* Buffer which can hold max 1 period test tone at 1000 Hz */
 static int16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 1000];
 static size_t test_tone_size;
-OpusEncoder *encoder;
 
 static bool sample_rate_valid(uint32_t sample_rate_hz)
 {
@@ -107,10 +108,10 @@ static void audio_headset_configure(void)
 	}
 }
 
-// #define CONFIG_CODEC_OPUS
-#if defined(CONFIG_CODEC_OPUS)
+
+#if (CONFIG_SW_CODEC_OPUS)
 size_t encoded_bytes;  // Variable to hold the size of encoded data
-opus_int16 *input_buffer; // Cast raw PCM data to the correct type
+opus_int16 *opus_input; // Cast raw PCM data to the correct type
 #endif //CONFIG_CODEC_OPUS
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
@@ -190,16 +191,16 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
                 // LOG_INF("pcm_raw_data %zu bytes", (size_t)FRAME_SIZE_BYTES);  // Use %zu for size_t values
                 // LOG_HEXDUMP_INF(pcm_raw_data, FRAME_SIZE_BYTES, "pcm_raw_data(HEX):");
 
-                # ifdef CONFIG_CODEC_OPUS
-                        input_buffer = (opus_int16 *) pcm_raw_data;
+                #if (CONFIG_SW_CODEC_OPUS)
+                        opus_input = (opus_int16 *) pcm_raw_data;
                         unsigned char opus_output[1920]; // Define a buffer for the output
 
                         // Encode the audio data using Opus
-                        encoded_bytes = opus_encode(encoder, input_buffer, 480, opus_output, sizeof(opus_output));
+                        encoded_bytes = ENC_Opus_Encode(opus_input, opus_output);
                         if (encoded_bytes < 0) {
                         LOG_ERR("Opus encoding failed: %s", opus_strerror(encoded_bytes));
                         } else {
-                        LOG_INF("Opus data: %zu bytes", encoded_bytes); // Log the size of the encoded OPUS data
+                        LOG_INF("Opus output data size: %zu bytes", encoded_bytes); // Log the size of the encoded OPUS data
                         streamctrl_send(opus_output, encoded_bytes, 2); // Send the encoded OPUS data
                         }
                 # else
@@ -400,7 +401,7 @@ void audio_system_start(void)
 	} else if (IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
 		audio_gateway_configure();
 	} else {
-		LOG_ERR("Invalid CONFIG_AUDIO_DEV: %d", CONFIG_AUDIO_DEV);
+		LOG_ERR("AUDIO_DEV_ROLE is not known");
 		ERR_CHK(-EINVAL);
 	}
 
@@ -517,29 +518,48 @@ int audio_system_init(void)
 #endif
 	k_poll_signal_init(&encoder_sig);
 
-#ifdef CONFIG_AUDIO_GATEWAY  // Check if CONFIG_AUDIO_GATEWAY is defined
-        // LOG_INF("encoder %d", opus_encoder_get_size(2));
-        // encoder = opus_encoder_create(48000, 2, OPUS_APPLICATION_AUDIO, &ret); // Initialize with 48 kHz, stereo audio
-        // if (ret != OPUS_OK) {
-        //         LOG_ERR("Failed to create opus_encoder: %d", ret);
+#if (CONFIG_SW_CODEC_OPUS)
+        Opus_Status status;
+        if(ENC_Opus_IsConfigured())
+        {
+                return OPUS_SUCCESS;
+        }
+        EncConfigOpus.application = (uint16_t) OPUS_APPLICATION_AUDIO;
+        EncConfigOpus.bitrate = 16000;
+        EncConfigOpus.channels = 2;
+        EncConfigOpus.complexity = 5;
+        EncConfigOpus.ms_frame = 10;
+        EncConfigOpus.sample_freq = 48000;
+
+        uint32_t enc_size = ENC_Opus_getMemorySize(&EncConfigOpus);
+        LOG_INF("ENC_Opus_getMemorySize: %d", enc_size);
+        EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(enc_size);
+        int opus_err;
+        status = ENC_Opus_Init(&EncConfigOpus, &opus_err);
+
+        if(status != OPUS_SUCCESS)
+        {
+                return opus_err;
+        }
+
+        status = ENC_Opus_Force_CELTmode();
+        if(status != OPUS_SUCCESS)
+        {
+                return opus_err;
+        }
+        // status = ENC_Opus_Set_VBR();
+        // if(status != OPUS_SUCCESS)
+        // {
+        // return OPUS_ERROR;
         // }
-        // ret = opus_encoder_ctl(encoder, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_10_MS));
-        // if (ret != OPUS_OK) {
-        //         LOG_ERR("Failed to set OPUS_SET_EXPERT_FRAME_DURATION: %d", ret);
+
+        // status = ENC_Opus_Set_CBR();
+        // if(status != OPUS_SUCCESS)
+        // {
+        // return OPUS_ERROR;
         // }
-        // ret = opus_encoder_ctl(encoder, OPUS_SET_BITRATE(16000));
-        // if (ret != OPUS_OK) {
-        //         LOG_ERR("Failed to set OPUS_SET_BITRATE: %d", ret);
-        // }
-        // ret = opus_encoder_ctl(encoder, OPUS_SET_LSB_DEPTH(16));
-        // if (ret != OPUS_OK) {
-        //         LOG_ERR("Failed to set OPUS_SET_LSB_DEPTH: %d", ret);
-        // }
-        // ret = opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(4));
-        // if (ret != OPUS_OK) {
-        //         LOG_ERR("Failed to set OPUS_SET_LSB_DEPTH: %d", ret);
-        // }
-#endif
+
+# endif //CONFIG_SW_CODEC_OPUS
 	return 0;
 }
 
