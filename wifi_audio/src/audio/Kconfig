@@ -215,7 +215,7 @@ menu "SW Codec"
 
 choice SW_CODEC_DEFAULT
 	prompt "Starting SW codec"
-	default SW_CODEC_LC3
+	default SW_CODEC_NO_CODEC
 	help
 	  Select the default codec to use on start up.
 
@@ -224,6 +224,16 @@ config SW_CODEC_LC3
 	select SW_CODEC_LC3_T2_SOFTWARE
 	help
 	  LC3 is the mandatory codec for LE Audio.
+
+config SW_CODEC_OPUS
+	bool "OPUS"
+	help
+	  OPUS codec.
+
+config SW_CODEC_NO_CODEC
+	bool "No SW codec"
+	help
+	  No software codec used.
 
 # Leave room for other codecs
 endchoice
