@@ -13,9 +13,13 @@
 #include "audio_system.h"
 #include "audio_sync_timer.h"
 
+#include "led.h"
+#include "hw_codec.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(wifi_audio_rx, CONFIG_WIFI_AUDIO_RX_LOG_LEVEL);
 
+// static void stream_state_set(enum stream_state stream_state_new);
 struct ble_iso_data {
 	// uint8_t data[251];
         uint8_t data[1920];
@@ -147,13 +151,67 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 	ERR_CHK_MSG(ret, "Failed to lock block");
 }
 
+#define START_SEQUENCE_1 0xFF
+#define START_SEQUENCE_2 0xAA
+#define END_SEQUENCE_1 0xFF
+#define END_SEQUENCE_2 0xBB
+#define AUDIO_START_CMD 0x00
+#define AUDIO_STOP_CMD  0x01
+#define AUDIO_VOLUME_UP_CMD 0x02
+#define AUDIO_VOLUME_DOWN_CMD 0x03
 
 #define TOTAL_PACKET_SIZE (1024 + 896)  // Total size of the two packets to be assembled
 #define MAX_PACKET_SIZE 1920            // Maximum packet size after assembly (1024 + 896)
 
 void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
+
+	// Check if the incoming data is a command packet
+ if (p_data[0] == START_SEQUENCE_1 && p_data[1] == START_SEQUENCE_2) {
+		if(p_data[data_size-2] == END_SEQUENCE_1 && p_data[data_size-1] == END_SEQUENCE_2) {
+			uint8_t command = p_data[2];
+			int ret;
+
+			switch (command)
+			{
+			// case AUDIO_START_CMD:
+			// 	stream_state_set(STATE_STREAMING);
+			// 	ret = led_blink(LED_APP_1_BLUE);
+			// 	ERR_CHK(ret);
+			// 	break;
+
+			// case AUDIO_STOP_CMD:
+			// 	stream_state_set(STATE_PAUSED);
+			// 	ret = led_on(LED_APP_1_BLUE);
+			// 	ERR_CHK(ret);
+			// 	break;
+
+			case AUDIO_VOLUME_UP_CMD:
+				ret = hw_codec_volume_increase();
+				if (ret) {
+					LOG_ERR("Failed to increase volume, ret: %d", ret);
+				}
+				break;
+
+			case AUDIO_VOLUME_DOWN_CMD:
+				ret = hw_codec_volume_decrease();
+				if (ret) {
+					LOG_ERR("Failed to decrease volume, ret: %d", ret);
+				}
+				break;
+			
+			default:
+				LOG_INF("Unknown command received: 0x%02X\n", command);
+				break;
+			}
+
+			return;
+		}
+ }
+
     static uint8_t assembled_data[MAX_PACKET_SIZE];  // Buffer to hold the assembled data
     static size_t assembled_size = 0;                // Keeps track of how much data has been assembled
+
+//		LOG_INF("Received data of size %zu\n", data_size);
 
     // Ensure that the incoming data won't overflow the buffer
     if (assembled_size + data_size > MAX_PACKET_SIZE) {
@@ -169,14 +227,14 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
     // Check if the buffer contains the full packet (1024 + 896 = 1920 bytes)
     if (assembled_size == TOTAL_PACKET_SIZE) {
         // Full packet has been received, process the assembled data
-        LOG_INF("Assembled complete packet of size %zu\n", assembled_size);
+        // LOG_INF("Assembled complete packet of size %zu\n", assembled_size);
         // You can now process the assembled data here...
         audio_data_frame_process(assembled_data, assembled_size) ;
         // Reset the buffer for future packets
         assembled_size = 0;
     } else {
         // Still waiting for more data
-        LOG_INF("Waiting for more data... Assembled so far: %zu bytes\n", assembled_size);
+        // LOG_INF("Waiting for more data... Assembled so far: %zu bytes\n", assembled_size);
     }
 }	
 

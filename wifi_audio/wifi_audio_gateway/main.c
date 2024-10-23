@@ -102,6 +102,8 @@ uint8_t stream_state_get(void)
 #define END_SEQUENCE_2 0xBB
 #define AUDIO_START_CMD 0x00
 #define AUDIO_STOP_CMD  0x01
+#define AUDIO_VOLUME_UP_CMD 0x02
+#define AUDIO_VOLUME_DOWN_CMD 0x03
 
 void socket_rx_handler(uint8_t *socket_rx_buf, uint16_t len){
     if (len < 5) {
@@ -173,6 +175,22 @@ void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
 	}
 }
 
+void send_audio_command(uint8_t audio_command) {
+    // Define the command packet with placeholders for start, command, and end
+    uint8_t command_packet[] = {
+        START_SEQUENCE_1,   // 0xFF
+        START_SEQUENCE_2,   // 0xAA
+        audio_command,      // Command: Variable (e.g., AUDIO_START_CMD or AUDIO_STOP_CMD)
+        END_SEQUENCE_1,     // 0xFF
+        END_SEQUENCE_2      // 0xBB
+    };
+
+    size_t packet_size = sizeof(command_packet);  // Calculate packet size
+
+    // Send the command using streamctrl_send
+    socket_util_tx_data((void const *)command_packet, packet_size);
+}
+
 /**
  * @brief	Handle button activity.
  */
@@ -227,6 +245,24 @@ static void button_msg_sub_thread(void)
 				LOG_WRN("In invalid state: %d", strm_state);
 			}
 
+			break;
+
+		case BUTTON_VOLUME_UP:
+			if (strm_state != STATE_STREAMING) {
+				LOG_WRN("Not in streaming state");
+				break;
+			}
+
+			send_audio_command(AUDIO_VOLUME_UP_CMD);
+			break;
+
+		case BUTTON_VOLUME_DOWN:
+			if (strm_state != STATE_STREAMING) {
+				LOG_WRN("Not in streaming state");
+				break;
+			}
+
+			send_audio_command(AUDIO_VOLUME_DOWN_CMD);
 			break;
 
 		case BUTTON_4:
