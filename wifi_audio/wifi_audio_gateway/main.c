@@ -59,28 +59,62 @@ static enum stream_state strm_state = STATE_PAUSED;
 #define HEAP_LISTENER
 #ifdef HEAP_LISTENER
 extern struct sys_heap _system_heap;
-static size_t total_allocated;
+struct sys_memory_stats stats;
+uint32_t system_heap_free = 0;
+uint32_t system_heap_used = 0;
+uint32_t system_heap_max_used = 0;
+
+
+extern struct sys_heap z_malloc_heap;// Need to delete static declaration when defining z_malloc_heap in zephyr/lib/libc/common/source/stdlib/malloc.c
+struct sys_memory_stats stats_libc;
+uint32_t stdlibc_heap_free = 0;
+uint32_t stdlibc_heap_used = 0;
+uint32_t stdlibc_heap_max_used = 0;
+
 
 void on_heap_alloc(uintptr_t heap_id, void *mem, size_t bytes)
 {
-	total_allocated += bytes;
-	LOG_INF(" AL Memory allocated %u bytes. Total allocated %u bytes", (unsigned int)bytes,
-		(unsigned int)total_allocated);
+        if(heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
+                sys_heap_runtime_stats_get(&_system_heap.heap, &stats);
+                system_heap_used = (uint32_t)stats.allocated_bytes;
+                system_heap_max_used = (uint32_t)stats.max_allocated_bytes;
+                system_heap_free = (uint32_t)stats.free_bytes;
+                LOG_INF("SYS ALLOC %u. Heap state:free %u, used %u, max used %u", bytes,system_heap_free, system_heap_used, system_heap_max_used);
+        } else if(heap_id == HEAP_ID_FROM_POINTER(&z_malloc_heap)) {
+                sys_heap_runtime_stats_get(&z_malloc_heap.heap, &stats_libc);
+                stdlibc_heap_used = (uint32_t)stats_libc.allocated_bytes;
+                stdlibc_heap_max_used = (uint32_t)stats_libc.max_allocated_bytes;
+                stdlibc_heap_free = (uint32_t)stats_libc.free_bytes;
+                LOG_INF("LIBC ALLOC %u. Heap state: free %u, used %u, max used %u", bytes,stdlibc_heap_free, stdlibc_heap_used, stdlibc_heap_max_used);
+        }
 }
 
-void on_heap_free(uintptr_t heap_id, void *mem, size_t bytes)
+void on_sys_heap_free(uintptr_t heap_id, void *mem, size_t bytes)
 {
-	total_allocated -= bytes;
-	LOG_INF(" FR Memory freed %u bytes. Total allocated %u bytes", (unsigned int)bytes,
-		(unsigned int)total_allocated);
+        if(heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
+                sys_heap_runtime_stats_get(&_system_heap.heap, &stats);
+                system_heap_used = (uint32_t)stats.allocated_bytes;
+                system_heap_max_used = (uint32_t)stats.max_allocated_bytes;
+                system_heap_free = (uint32_t)stats.free_bytes;
+                LOG_INF("SYS FREE %u. Heap state: free %u, used %u, max used %u", bytes,system_heap_free, system_heap_used, system_heap_max_used);
+        } else if(heap_id == HEAP_ID_FROM_POINTER(&z_malloc_heap)) {
+                sys_heap_runtime_stats_get(&z_malloc_heap.heap, &stats_libc);
+                stdlibc_heap_used = (uint32_t)stats_libc.allocated_bytes;
+                stdlibc_heap_max_used = (uint32_t)stats_libc.max_allocated_bytes;
+                stdlibc_heap_free = (uint32_t)stats_libc.free_bytes;
+                LOG_INF("LIBC FREE %u. Heap state: free %u, used %u, max used %u", bytes,stdlibc_heap_free, stdlibc_heap_used, stdlibc_heap_max_used);
+        }
 }
 
 #if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
 
-HEAP_LISTENER_ALLOC_DEFINE(my_heap_listener_alloc, HEAP_ID_FROM_POINTER(&_system_heap),
+HEAP_LISTENER_ALLOC_DEFINE(sys_heap_listener_alloc, HEAP_ID_FROM_POINTER(&_system_heap),
 			   on_heap_alloc);
+HEAP_LISTENER_FREE_DEFINE(sys_heap_listener_free, HEAP_ID_FROM_POINTER(&_system_heap), on_sys_heap_free);
 
-HEAP_LISTENER_FREE_DEFINE(my_heap_listener_free, HEAP_ID_FROM_POINTER(&_system_heap), on_heap_free);
+HEAP_LISTENER_ALLOC_DEFINE(stdlibc_heap_listener_alloc, HEAP_ID_FROM_POINTER(&z_malloc_heap),
+			   on_heap_alloc);
+HEAP_LISTENER_FREE_DEFINE(stdlibc_heap_listener_free, HEAP_ID_FROM_POINTER(&z_malloc_heap), on_sys_heap_free);
 
 #endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
 #endif /* #ifdef HEAP_LISTENER */
@@ -412,8 +446,10 @@ int main(void)
         #ifdef HEAP_LISTENER
         #if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
 
-                heap_listener_register(&my_heap_listener_alloc);
-                heap_listener_register(&my_heap_listener_free);
+                // heap_listener_register(&sys_heap_listener_alloc);
+                // heap_listener_register(&sys_heap_listener_free);
+                // heap_listener_register(&stdlibc_heap_listener_alloc);
+                // heap_listener_register(&stdlibc_heap_listener_free);
 
         #endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
 
