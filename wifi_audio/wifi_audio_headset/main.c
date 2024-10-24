@@ -393,7 +393,6 @@ int socket_util_init(void){
 
         ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
         socket_util_set_rx_callback(wifi_audio_rx_data_handler);
-        // socket_util_set_rx_callback(socket_rx_handler);
 	return ret;
 }
 
@@ -420,7 +419,6 @@ int main(void)
 
 	ret = socket_util_init();
 	ERR_CHK(ret);
-        //TODO: Add target IP input and store it into settings.
 
         LOG_INF("audio_system_init"); 
 	ret = audio_system_init();

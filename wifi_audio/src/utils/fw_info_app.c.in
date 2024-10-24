@@ -51,7 +51,7 @@ int fw_info_app_print(void)
 		//	return ret;
 		//}
 		/* NOTE: The string below is used by the Nordic CI system */
-		LOG_INF(COLOR_CYAN "HEADSET right device" COLOR_RESET);
+		LOG_INF(COLOR_CYAN "Compiled as AUDIO HEADSET device." COLOR_RESET);
 	} else {
 		__ASSERT(false, "Unknown channel");
 	}
@@ -61,7 +61,7 @@ int fw_info_app_print(void)
 	//if (ret) {
 	//	return ret;
 	//}
-	LOG_INF(COLOR_CYAN "Compiled for GATEWAY device" COLOR_RESET);
+	LOG_INF(COLOR_CYAN "Compiled as AUDIO GATEWAY device." COLOR_RESET);
 #else 
         LOG_INF(COLOR_CYAN "Device role is not defined." COLOR_RESET);
 #endif /* (CONFIG_AUDIO_HEADSET) */

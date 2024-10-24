@@ -128,8 +128,7 @@ static void on_net_event_dhcp_bound(struct net_mgmt_event_callback *cb)
 	const struct in_addr *addr = &dhcpv4->requested_ip;
 	char dhcp_info[128];
 	net_addr_ntop(AF_INET, addr, dhcp_info, sizeof(dhcp_info));
-	LOG_INF("\r\n\r\nWiFi is ready on nRF5340 Audio DK + nRF7002EK. Try to connect the socket(udp by default) to address %s:60010.\r\n", dhcp_info);
-        
+	LOG_INF("\r\n\r\nWiFi is ready, socket %s:60010 is open for connection.\r\n", dhcp_info);
 }
 
 /* Define the callback function for network events */
@@ -184,7 +183,7 @@ int wifi_station_mode_ready(void)
 		return ENOEXEC;
 	}
 #else
-	LOG_INF("\r\n\r\nRunnning on WiFi Station mode.\r\nPlease connect to router with 'wifi_cred' commands, use 'wifi_cred help' to get help.\r\n");
+	LOG_INF("\r\n\r\nRunning on WiFi Station mode.\r\nPlease connect to router with 'wifi_cred' commands, use 'wifi_cred help' to get help.\r\n");
 #endif
         k_sem_take(&net_connect_ready, K_FOREVER);
 	return 0;
