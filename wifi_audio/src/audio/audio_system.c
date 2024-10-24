@@ -111,7 +111,7 @@ static void audio_headset_configure(void)
 
 #if (CONFIG_SW_CODEC_OPUS)
 size_t encoded_bytes;  // Variable to hold the size of encoded data
-opus_int16 *opus_input; // Cast raw PCM data to the correct type
+uint8_t opus_output[48]; 
 #endif //CONFIG_CODEC_OPUS
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
@@ -150,58 +150,18 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			data_fifo_block_free(&fifo_rx, tmp_pcm_raw_data[i]);
 		}
 
-		// if (sw_codec_cfg.encoder.enabled) {
-		// 	if (test_tone_size) {
-		// 		/* Test tone takes over audio stream */
-		// 		uint32_t num_bytes;
-		// 		char tmp[FRAME_SIZE_BYTES / 2];
-
-		// 		ret = contin_array_create(tmp, FRAME_SIZE_BYTES / 2, test_tone_buf,
-		// 					  test_tone_size, &test_tone_finite_pos);
-		// 		ERR_CHK(ret);
-
-		// 		ret = pscm_copy_pad(tmp, FRAME_SIZE_BYTES / 2,
-		// 				    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_raw_data,
-		// 				    &num_bytes);
-		// 		ERR_CHK(ret);
-		// 	}
-
-		// 	ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
-		// 			      &encoded_data_size);
-
-		// 	ERR_CHK_MSG(ret, "Encode failed");
-		// }
-
-		// /* Print block usage */
-		// if (debug_trans_count == DEBUG_INTERVAL_NUM) {
-		// 	ret = data_fifo_num_used_get(&fifo_rx, &blocks_alloced_num,
-		// 				     &blocks_locked_num);
-		// 	ERR_CHK(ret);
-		// 	LOG_DBG(COLOR_CYAN "RX alloced: %d, locked: %d" COLOR_RESET,
-		// 		blocks_alloced_num, blocks_locked_num);
-		// 	debug_trans_count = 0;
-		// } else {
-		// 	debug_trans_count++;
-		// }
-
-		// if (sw_codec_cfg.encoder.enabled) {
-		// 	streamctrl_send(encoded_data, encoded_data_size,
-		// 			sw_codec_cfg.encoder.num_ch);
-		// }
-                // LOG_INF("pcm_raw_data %zu bytes", (size_t)FRAME_SIZE_BYTES);  // Use %zu for size_t values
-                // LOG_HEXDUMP_INF(pcm_raw_data, FRAME_SIZE_BYTES, "pcm_raw_data(HEX):");
-
                 #if (CONFIG_SW_CODEC_OPUS)
-                        opus_input = (opus_int16 *) pcm_raw_data;
-                        unsigned char opus_output[1920]; // Define a buffer for the output
-
                         // Encode the audio data using Opus
-                        encoded_bytes = ENC_Opus_Encode(opus_input, opus_output);
+                        LOG_INF("ENC_Opus_Encode!!!!!");
+                        encoded_bytes = ENC_Opus_Encode((opus_int16 *) pcm_raw_data, EncConfigOpus.pInternalMemory);
                         if (encoded_bytes < 0) {
-                        LOG_ERR("Opus encoding failed: %s", opus_strerror(encoded_bytes));
+                                LOG_ERR("Opus encoding failed: %s", opus_strerror(encoded_bytes));
                         } else {
-                        LOG_INF("Opus output data size: %zu bytes", encoded_bytes); // Log the size of the encoded OPUS data
-                        streamctrl_send(opus_output, encoded_bytes, 2); // Send the encoded OPUS data
+                                LOG_INF("Opus output data size: %zu bytes", encoded_bytes); // Log the size of the encoded OPUS data
+                                
+                                memcpy(opus_output, EncConfigOpus.pInternalMemory, encoded_bytes);
+                                // Send the encoded OPUS data
+                                streamctrl_send(opus_output, encoded_bytes, 2);
                         }
                 # else
                         streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES,NULL);
