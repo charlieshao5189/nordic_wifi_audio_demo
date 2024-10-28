@@ -30,6 +30,6 @@ uint8_t stream_state_get(void);
  * @param size		Size of data.
  * @param num_ch	Number of audio channels.
  */
-void streamctrl_send(void const *const data, size_t size, uint8_t num_ch);
+void streamctrl_send(void const *const data, size_t size);
 
 #endif /* _STREAMCTRL_H_ */

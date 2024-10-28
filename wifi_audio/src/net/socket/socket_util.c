@@ -117,7 +117,7 @@ int socket_util_tx_data(uint8_t *data, size_t length)
 {
 
     size_t chunk_size = 1024;
-    ssize_t bytes_sent;
+    ssize_t bytes_sent=0;
 
     while (length > 0) {
         size_t to_send = (length >= chunk_size) ? chunk_size : length;
@@ -138,7 +138,7 @@ int socket_util_tx_data(uint8_t *data, size_t length)
             #endif
 
             FATAL_ERROR();
-            return;
+            return bytes_sent;
         }
 
         data += bytes_sent;

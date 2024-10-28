@@ -56,7 +56,7 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
         int ret;
 	uint32_t blocks_alloced_num, blocks_locked_num;
 	struct audio_pcm_data_t *data_received = NULL;
-	static struct rx_stats rx_stats[AUDIO_CH_NUM];
+	// static struct rx_stats rx_stats[AUDIO_CH_NUM];
 	static uint32_t num_overruns;
 	static uint32_t num_thrown;
 
@@ -188,11 +188,10 @@ static void audio_datapath_thread(void *dummy1, void *dummy2, void *dummy3)
 {
 	int ret;
 	struct audio_pcm_data_t *iso_received = NULL;
-	size_t iso_received_size;
 
 	while (1) {
 		ret = data_fifo_pointer_last_filled_get(&wifi_audio_rx, (void *)&iso_received,
-							iso_received->size, K_FOREVER);
+							(size_t*)iso_received->size, K_FOREVER);
 		ERR_CHK(ret);
 
 		if (IS_ENABLED(CONFIG_AUDIO_SOURCE_USB) && IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {

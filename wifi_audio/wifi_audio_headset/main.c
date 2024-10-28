@@ -98,12 +98,10 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
-void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
+void streamctrl_send(void const *const data, size_t size)
 {
-	int ret;
+	int ret=0;
 	static int prev_ret;
-
-	struct le_audio_encoded_audio enc_audio = {.data = data, .size = size, .num_ch = num_ch};
 
 	if (strm_state == STATE_STREAMING) {
 		// ret = broadcast_source_send(0, enc_audio);
@@ -424,9 +422,7 @@ int main(void)
 	ret = audio_system_init();
 	ERR_CHK(ret);
 
-        ret = audio_system_config_set(
-		48000,
-		9600, 0);
+        ret = audio_system_config_set(48000,16000,16000);
 	ERR_CHK_MSG(ret, "Failed to set sample- and bitrate");
 
         // audio_codec_opus_init();

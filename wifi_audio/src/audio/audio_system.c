@@ -65,11 +65,13 @@ static bool sample_rate_valid(uint32_t sample_rate_hz)
 
 static void audio_gateway_configure(void)
 {
-	// if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
-	// 	sw_codec_cfg.sw_codec = SW_CODEC_LC3;
-	// } else {
-	// 	ERR_CHK_MSG(-EINVAL, "No codec selected");
-	// }
+	if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
+		sw_codec_cfg.sw_codec = SW_CODEC_LC3;
+	} else if (IS_ENABLED(CONFIG_SW_CODEC_OPUS)) {
+		sw_codec_cfg.sw_codec = SW_CODEC_OPUS;
+	} else {
+		LOG_INF("No codec selected, transfering uncompressed PCM audio data.");
+	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
 	sw_codec_cfg.decoder.num_ch = 1;
@@ -88,11 +90,13 @@ static void audio_gateway_configure(void)
 
 static void audio_headset_configure(void)
 {
-	// if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
-	// 	sw_codec_cfg.sw_codec = SW_CODEC_LC3;
-	// } else {
-	// 	ERR_CHK_MSG(-EINVAL, "No codec selected");
-	// }
+	if (IS_ENABLED(CONFIG_SW_CODEC_LC3)) {
+		sw_codec_cfg.sw_codec = SW_CODEC_LC3;
+	} else if (IS_ENABLED(CONFIG_SW_CODEC_OPUS)) {
+		sw_codec_cfg.sw_codec = SW_CODEC_OPUS;
+	} else {
+		LOG_INF("No codec selected, transfering uncompressed PCM audio data.");
+	}
 
 #if (CONFIG_STREAM_BIDIRECTIONAL)
 	sw_codec_cfg.encoder.num_ch = 1;
@@ -121,12 +125,12 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 	uint32_t blocks_locked_num;
 
 	int debug_trans_count = 0;
-	size_t encoded_data_size = 0;
+	// size_t encoded_data_size = 0;
 
 	void *tmp_pcm_raw_data[CONFIG_FIFO_FRAME_SPLIT_NUM];
 	static uint8_t pcm_raw_data[FRAME_SIZE_BYTES];
 
-	static uint8_t *encoded_data;
+	// static uint8_t *encoded_data;
 	static size_t pcm_block_size;
 	static uint32_t test_tone_finite_pos;
 
@@ -150,6 +154,41 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 			data_fifo_block_free(&fifo_rx, tmp_pcm_raw_data[i]);
 		}
 
+		if (sw_codec_cfg.encoder.enabled) {
+			if (test_tone_size) {
+				/* Test tone takes over audio stream */
+				uint32_t num_bytes;
+				char tmp[FRAME_SIZE_BYTES / 2];
+
+				ret = contin_array_create(tmp, FRAME_SIZE_BYTES / 2, test_tone_buf,
+							  test_tone_size, &test_tone_finite_pos);
+				ERR_CHK(ret);
+
+				ret = pscm_copy_pad(tmp, FRAME_SIZE_BYTES / 2,
+						    CONFIG_AUDIO_BIT_DEPTH_BITS, pcm_raw_data,
+						    &num_bytes);
+				ERR_CHK(ret);
+			}
+
+/* 			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
+					      &encoded_data_size); */
+
+			ERR_CHK_MSG(ret, "Encode failed");
+		}
+
+		/* Print block usage */
+		if (debug_trans_count == DEBUG_INTERVAL_NUM) {
+			ret = data_fifo_num_used_get(&fifo_rx, &blocks_alloced_num,
+						     &blocks_locked_num);
+			ERR_CHK(ret);
+			LOG_DBG(COLOR_CYAN "RX alloced: %d, locked: %d" COLOR_RESET,
+				blocks_alloced_num, blocks_locked_num);
+			debug_trans_count = 0;
+		} else {
+			debug_trans_count++;
+		}
+
+		if (sw_codec_cfg.encoder.enabled) {
                 #if (CONFIG_SW_CODEC_OPUS)
                         // Encode the audio data using Opus
                         LOG_INF("ENC_Opus_Encode!!!!!");
@@ -161,11 +200,12 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
                                 
                                 memcpy(opus_output, EncConfigOpus.pInternalMemory, encoded_bytes);
                                 // Send the encoded OPUS data
-                                streamctrl_send(opus_output, encoded_bytes, 2);
+                                streamctrl_send(opus_output, encoded_bytes);
                         }
                 # else
-                        streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES,NULL);
+                        streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES);
                 # endif //CONFIG_CODEC_OPUS
+		}
                
 		STACK_USAGE_PRINT("encoder_thread", &encoder_thread_data);
 	}
