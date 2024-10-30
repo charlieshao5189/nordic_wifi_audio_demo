@@ -19,6 +19,11 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(wifi_audio_rx, CONFIG_WIFI_AUDIO_RX_LOG_LEVEL);
 
+#include <zephyr/zbus/zbus.h>
+#include "zbus_common.h"
+ZBUS_CHAN_DEFINE(volume_chan, struct volume_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
+		 ZBUS_MSG_INIT(0));
+
 // static void stream_state_set(enum stream_state stream_state_new);
 struct ble_iso_data {
 	// uint8_t data[251];
@@ -159,6 +164,7 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 #define AUDIO_STOP_CMD  0x01
 #define AUDIO_VOLUME_UP_CMD 0x02
 #define AUDIO_VOLUME_DOWN_CMD 0x03
+#define AUDIO_VOLUME_MUTE_CMD 0x04
 
 #define TOTAL_PACKET_SIZE (1024 + 896)  // Total size of the two packets to be assembled
 #define MAX_PACKET_SIZE 1920            // Maximum packet size after assembly (1024 + 896)
@@ -169,6 +175,7 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
  if (p_data[0] == START_SEQUENCE_1 && p_data[1] == START_SEQUENCE_2) {
 		if(p_data[data_size-2] == END_SEQUENCE_1 && p_data[data_size-1] == END_SEQUENCE_2) {
 			uint8_t command = p_data[2];
+			struct volume_msg msg;
 			int ret;
 
 			switch (command)
@@ -186,19 +193,29 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
 			// 	break;
 
 			case AUDIO_VOLUME_UP_CMD:
-				ret = hw_codec_volume_increase();
+				msg.event = VOLUME_UP;
+				ret = zbus_chan_pub(&volume_chan, &msg, K_NO_WAIT);
 				if (ret) {
-					LOG_ERR("Failed to increase volume, ret: %d", ret);
+					LOG_ERR("Failed to publish volume up event");
 				}
 				break;
 
 			case AUDIO_VOLUME_DOWN_CMD:
-				ret = hw_codec_volume_decrease();
+				msg.event = VOLUME_DOWN;
+				ret = zbus_chan_pub(&volume_chan, &msg, K_NO_WAIT);
 				if (ret) {
-					LOG_ERR("Failed to decrease volume, ret: %d", ret);
+					LOG_ERR("Failed to publish volume down event");
 				}
 				break;
 			
+			case AUDIO_VOLUME_MUTE_CMD:
+				msg.event = VOLUME_MUTE_TOGGLE;
+				ret = zbus_chan_pub(&volume_chan, &msg, K_NO_WAIT);
+				if (ret) {
+					LOG_ERR("Failed to publish volume mute event");
+				}
+				break;
+
 			default:
 				LOG_INF("Unknown command received: 0x%02X\n", command);
 				break;

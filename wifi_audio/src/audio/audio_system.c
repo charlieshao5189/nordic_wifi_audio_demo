@@ -224,6 +224,7 @@ void audio_system_encoder_stop(void)
 
 int audio_system_encode_test_tone_set(uint32_t freq)
 {
+	LOG_INF("Setting test tone at %d Hz", freq);
 	int ret;
 
 	if (freq == 0) {
@@ -233,7 +234,7 @@ int audio_system_encode_test_tone_set(uint32_t freq)
 
 	if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
 		ret = tone_gen(test_tone_buf, &test_tone_size, freq, CONFIG_AUDIO_SAMPLE_RATE_HZ,
-			       1);
+			       0.3); // Amplitude set to 0.3 as the test tone is unpleasantly loud
 		ERR_CHK(ret);
 	} else {
 		LOG_ERR("Test tone is not enabled");

@@ -77,6 +77,7 @@ enum volume_evt_type {
 	VOLUME_SET,
 	VOLUME_MUTE,
 	VOLUME_UNMUTE,
+	VOLUME_MUTE_TOGGLE,
 };
 
 struct volume_msg {

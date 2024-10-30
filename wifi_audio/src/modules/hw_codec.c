@@ -58,6 +58,7 @@ static void volume_msg_sub_thread(void)
 	int ret;
 
 	const struct zbus_channel *chan;
+	int mute_state = VOLUME_UNMUTE;
 
 	while (1) {
 		ret = zbus_sub_wait(&volume_evt_sub, &chan, K_FOREVER);
@@ -103,12 +104,34 @@ static void volume_msg_sub_thread(void)
 			if (ret) {
 				LOG_ERR("Failed to mute volume, ret: %d", ret);
 			}
+			mute_state = VOLUME_MUTE;
+			LOG_INF("Volume muted");
 			break;
 		case VOLUME_UNMUTE:
 			LOG_DBG("Volume unmute received");
 			ret = hw_codec_volume_unmute();
 			if (ret) {
 				LOG_ERR("Failed to unmute volume, ret: %d", ret);
+			}
+			mute_state = VOLUME_UNMUTE;
+			LOG_INF("Volume unmuted");
+			break;
+		case VOLUME_MUTE_TOGGLE:
+			LOG_DBG("Volume mute toggle received");
+			if (mute_state == VOLUME_MUTE) {
+				ret = hw_codec_volume_unmute();
+				if (ret) {
+					LOG_ERR("Failed to unmute volume, ret: %d", ret);
+				}
+			  mute_state = VOLUME_UNMUTE;
+				LOG_INF("Volume unmuted");
+			} else if (mute_state == VOLUME_UNMUTE) {
+				ret = hw_codec_volume_mute();
+				if (ret) {
+					LOG_ERR("Failed to mute volume, ret: %d", ret);
+				}
+				mute_state = VOLUME_MUTE;
+				LOG_INF("Volume muted");
 			}
 			break;
 		default:

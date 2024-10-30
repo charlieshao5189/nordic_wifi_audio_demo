@@ -38,11 +38,13 @@ ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
 
 ZBUS_CHAN_DECLARE(button_chan);
-ZBUS_CHAN_DECLARE(le_audio_chan);
-ZBUS_CHAN_DECLARE(bt_mgmt_chan);
+ZBUS_CHAN_DECLARE(volume_chan);
+// ZBUS_CHAN_DECLARE(le_audio_chan);
+// ZBUS_CHAN_DECLARE(bt_mgmt_chan);
 // ZBUS_CHAN_DECLARE(sdu_ref_chan);
 
 ZBUS_OBS_DECLARE(sdu_ref_msg_listen);
+ZBUS_OBS_DECLARE(volume_evt_sub);
 
 static struct k_thread button_msg_sub_thread_data;
 static struct k_thread le_audio_msg_sub_thread_data;
@@ -154,6 +156,7 @@ static void button_msg_sub_thread(void)
 		ERR_CHK(ret);
 
 		struct button_msg msg;
+		struct volume_msg vol_msg;
 
 		ret = zbus_chan_read(chan, &msg, ZBUS_READ_TIMEOUT_MS);
 		ERR_CHK(ret);
@@ -196,46 +199,63 @@ static void button_msg_sub_thread(void)
 
 			break;
 
-		case BUTTON_4:
-			if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
-				if (strm_state != STATE_STREAMING) {
-					LOG_WRN("Not in streaming state");
-					break;
-				}
+		// NOTE: Tone generation is done in gateway
+		// case BUTTON_4:
+		// 	if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
+		// 		if (strm_state != STATE_STREAMING) {
+		// 			LOG_WRN("Not in streaming state");
+		// 			break;
+		// 		}
+		// 		LOG_INF("Got test tone button press");
 
-				ret = audio_system_encode_test_tone_step();
-				if (ret) {
-					LOG_WRN("Failed to play test tone, ret: %d", ret);
-				}
+		// 		ret = audio_system_encode_test_tone_step();
+		// 		if (ret) {
+		// 			LOG_WRN("Failed to play test tone, ret: %d", ret);
+		// 		}
 
-				break;
-			}
+		// 		break;
+		// 	}
 
-			break;
+		// 	break;
 
 		case BUTTON_VOLUME_UP:
-				if (strm_state != STATE_STREAMING) {
-					LOG_WRN("Not in streaming state");
-					break;
-				}
-				/* TODO: Should be implemented the same way as nrf5340_audio to allow for bidirectional volume control, this is a temporary solution */
-				ret = hw_codec_volume_increase();
+				// NOTE: commented out to allow volume control in headset without audio streaming
+				// if (strm_state != STATE_STREAMING) {
+				// 	LOG_WRN("Not in streaming state");
+				// 	break;
+				// }
+				vol_msg.event = VOLUME_UP;
+				ret = zbus_chan_pub(&volume_chan, &vol_msg, K_NO_WAIT);
 				if (ret) {
 					LOG_ERR("Failed to increase volume, ret: %d", ret);
 				}
-		break;
+				break;
 
 		case BUTTON_VOLUME_DOWN:
-				if (strm_state != STATE_STREAMING) {
-					LOG_WRN("Not in streaming state");
-					break;
-				}
-				/* TODO: Should be implemented the same way as nrf5340_audio to allow for bidirectional volume control, this is a temporary solution */
-				ret = hw_codec_volume_decrease();
+				// NOTE: commented out to allow volume control in headset without audio streaming
+				// if (strm_state != STATE_STREAMING) {
+				// 	LOG_WRN("Not in streaming state");
+				// 	break;
+				// }
+				vol_msg.event = VOLUME_DOWN;
+				ret = zbus_chan_pub(&volume_chan, &vol_msg, K_NO_WAIT);
 				if (ret) {
 					LOG_ERR("Failed to decrease volume, ret: %d", ret);
 				}
-		break;
+				break;
+
+		case BUTTON_5:
+			// NOTE: commented out to allow volume control in headset without audio streaming
+			// if (strm_state != STATE_STREAMING) {
+			// 	LOG_WRN("Not in streaming state");
+			// 	break;
+			// }
+			vol_msg.event = VOLUME_MUTE_TOGGLE;
+			ret = zbus_chan_pub(&volume_chan, &vol_msg, K_NO_WAIT);
+			if (ret) {
+				LOG_ERR("Failed to mute volume, ret: %d", ret);
+			}
+			break;
 
 
 		default:
@@ -360,6 +380,12 @@ static int zbus_link_producers_observers(void)
 	ret = zbus_chan_add_obs(&button_chan, &button_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
 	if (ret) {
 		LOG_ERR("Failed to add button sub");
+		return ret;
+	}
+
+	ret = zbus_chan_add_obs(&volume_chan, &volume_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
+	if (ret) {
+		LOG_ERR("Failed to add add volume sub");
 		return ret;
 	}
 

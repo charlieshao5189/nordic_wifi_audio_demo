@@ -137,6 +137,7 @@ uint8_t stream_state_get(void)
 #define AUDIO_STOP_CMD  0x01
 #define AUDIO_VOLUME_UP_CMD 0x02
 #define AUDIO_VOLUME_DOWN_CMD 0x03
+#define AUDIO_VOLUME_MUTE_CMD 0x04
 
 void socket_rx_handler(uint8_t *socket_rx_buf, uint16_t len){
     if (len < 5) {
@@ -263,6 +264,7 @@ static void button_msg_sub_thread(void)
 				LOG_WRN("Not in streaming state");
 				break;
 			}
+			LOG_INF("Sending Volume Up Command");
 
 			send_audio_command(AUDIO_VOLUME_UP_CMD);
 			break;
@@ -272,6 +274,7 @@ static void button_msg_sub_thread(void)
 				LOG_WRN("Not in streaming state");
 				break;
 			}
+			LOG_INF("Sending Volume Down Command");
 
 			send_audio_command(AUDIO_VOLUME_DOWN_CMD);
 			break;
@@ -291,6 +294,16 @@ static void button_msg_sub_thread(void)
 				break;
 			}
 
+			break;
+
+		case BUTTON_5:
+			if(strm_state != STATE_STREAMING) {
+				LOG_WRN("Not in streaming state");
+				break;
+			}
+			LOG_INF("Sending Volume Mute Command");
+
+			send_audio_command(AUDIO_VOLUME_MUTE_CMD);
 			break;
 
 		default:
