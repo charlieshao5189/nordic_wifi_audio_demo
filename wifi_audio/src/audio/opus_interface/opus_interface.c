@@ -76,7 +76,7 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus,  int *opus_err
   Opus_Status status;
   *opus_err = 0;
   
-  hOpus.ENC_frame_size = (uint16_t)(((float)(ENC_configOpus->sample_freq/1000))*ENC_configOpus->ms_frame);// Opus input frame sample amount 480 480
+  hOpus.ENC_frame_size = (uint16_t)(((float)(ENC_configOpus->sample_freq/1000))*ENC_configOpus->ms_frame);// Opus input frame sample amount 480
 
   hOpus.max_enc_frame_size = (ENC_configOpus->bitrate/8/((uint16_t)(1000.0f/ENC_configOpus->ms_frame)))*2;// Opus output frame data size 40 Bytes
 

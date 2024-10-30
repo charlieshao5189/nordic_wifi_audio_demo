@@ -9,7 +9,7 @@
 
 /* Variable leng arays  */
 #define VAR_ARRAYS
-
+// #define USE_ALLOCA
 /* Comment out the next line for floating-point code */
 #define FIXED_POINT           1 
 

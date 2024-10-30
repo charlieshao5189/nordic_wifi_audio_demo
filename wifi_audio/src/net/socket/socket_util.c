@@ -17,6 +17,7 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 #include <zephyr/sys/reboot.h>
 #include <dk_buttons_and_leds.h>
 #include <zephyr/logging/log_ctrl.h>
+#include <zephyr/shell/shell.h>
 #include "socket_util.h"
 
 #define FATAL_ERROR()                              \
@@ -45,15 +46,19 @@ int tcp_server_socket;
 struct sockaddr_in self_addr;
 bool socket_connected=false;
 
+
 char target_addr_str[32];
 struct sockaddr_in target_addr;
 socklen_t target_addr_len=sizeof(target_addr);
 
+#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+static struct k_sem target_addr_set_sem;
+static bool target_addr_set = false; // Flag to indicate if the target address is set
+#endif //#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+
 /* Define the semaphore net_connect_ready */
 struct k_sem net_connect_ready;
 enum wifi_modes wifi_mode=WIFI_STATION_MODE;
-
-
 
 static socket_receive_t socket_receive;
 
@@ -112,12 +117,12 @@ int socket_util_tx_data(uint8_t *data, size_t length)
 {
 
     size_t chunk_size = 1024;
-    ssize_t bytes_sent;
+    ssize_t bytes_sent=0;
 
     while (length > 0) {
         size_t to_send = (length >= chunk_size) ? chunk_size : length;
 
-        #if defined(USE_TCP_SOCKET)
+        #if defined(CONFIG_USE_TCP_SOCKET)
             bytes_sent = send(tcp_server_socket, data, to_send, 0);
         #else
             bytes_sent = sendto(udp_socket, data, to_send, 0, (struct sockaddr *)&target_addr, sizeof(target_addr));
@@ -126,14 +131,14 @@ int socket_util_tx_data(uint8_t *data, size_t length)
         if (bytes_sent == -1) {
             perror("Sending failed");
             
-            #if defined(USE_TCP_SOCKET)
+            #if defined(CONFIG_USE_TCP_SOCKET)
                 close(tcp_server_socket);
             #else
                 close(udp_socket);
             #endif
 
             FATAL_ERROR();
-            return;
+            return bytes_sent;
         }
 
         data += bytes_sent;
@@ -148,6 +153,10 @@ void socket_util_thread(void)
 	int ret;
 
 	k_sem_init(&net_connect_ready, 0, 1);
+
+        #if defined(CONFIG_SOCKET_ROLE_CLIENT)
+                k_sem_init(&target_addr_set_sem, 0, 1);
+        #endif //#if defined(CONFIG_SOCKET_ROLE_CLIENT)
 
 	if (dk_leds_init() != 0)
 	{
@@ -167,19 +176,20 @@ void socket_util_thread(void)
 		return;
 	}
 
-        //TODO:Change All camaddr to dev_addr
 	self_addr.sin_family = AF_INET;
 	self_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	self_addr.sin_port = htons(socket_port);
 
+        target_addr.sin_family = AF_INET;
 
-        target_addr.sin_family = AF_INET,
-        target_addr.sin_port = htons(60010),  // Convert port to network byte order
-        // Set the IP address (convert from presentation format to network format)
-        #if defined(CONFIG_SOCKET_TARGET_ADDR)
-                inet_pton(AF_INET,CONFIG_SOCKET_TARGET_ADDR, &(target_addr.sin_addr));
-        #endif
-	#if defined(USE_TCP_SOCKET)
+        #if defined(CONFIG_SOCKET_ROLE_CLIENT)
+                LOG_INF("\r\n\r\n Play as socket client, set target server address with shell command:socket set_target_addr <IP>:<Port>)\r\n");
+                k_sem_take(&target_addr_set_sem, K_FOREVER);
+        #elif defined(CONFIG_SOCKET_ROLE_SERVER)
+                LOG_INF("\r\n\r\n Play as socket server, waiting for client connection...\r\n");
+        #endif //#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+
+	#if defined(CONFIG_USE_TCP_SOCKET)
 		tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		
 		if (tcp_server_listen_fd < 0)
@@ -280,3 +290,61 @@ void socket_util_thread(void)
 //         ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
 // 	return ret;
 // }
+
+#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+
+static int cmd_set_target_address(const struct shell *shell, size_t argc, const char **argv)
+{
+    // Ensure the command is provided with exactly one argument
+    if (argc != 2) {
+        shell_print(shell, "Usage: socket set_target_addr <IP:Port>");
+        return -1;
+    }
+
+    char *target_addr_str = (char *)k_malloc(22); // Allocate memory for the string
+    if (target_addr_str == NULL) {
+        shell_print(shell, "Memory allocation failed");
+        return -1;
+    }
+
+    // Get the target address string from the command argument
+    strncpy(target_addr_str, argv[1], 22); // Use strncpy instead of strcpy for safety
+    target_addr_str[21] = '\0'; // Ensure null-termination
+
+    char ip_str[INET_ADDRSTRLEN];
+    int port;
+
+    // Split into IP address and port
+    if (sscanf(target_addr_str, "%[^:]:%d", ip_str, &port) != 2) {
+        shell_print(shell, "Invalid format. Expected <IP>:<Port>");
+        k_free(target_addr_str); // Free the allocated memory
+        return -1;
+    }
+
+    // Set up the sockaddr_in structure
+    target_addr.sin_family = AF_INET;
+    target_addr.sin_port = htons(port); // Convert port to network byte order
+
+    if (inet_pton(AF_INET, ip_str, &(target_addr.sin_addr)) <= 0) {
+        shell_print(shell, "Invalid IP address format: %s", ip_str);
+        k_free(target_addr_str);
+        return -1;
+    }
+
+    shell_print(shell, "Target address set to: %s:%d", ip_str, port);
+    target_addr_set = true; // Set the flag to true
+    k_sem_give(&target_addr_set_sem); // Signal that the target address is set
+    k_free(target_addr_str); // Free memory afterwards
+
+    return 0;
+}
+
+// Existing shell command definitions
+SHELL_STATIC_SUBCMD_SET_CREATE(socket_cmd,
+                               SHELL_CMD(set_target_addr, NULL, "Get and set target address in format <IP:Port>",
+                                          cmd_set_target_address),
+                               SHELL_SUBCMD_SET_END);
+
+SHELL_CMD_REGISTER(socket, &socket_cmd, "Socket commands", NULL);
+
+#endif //#if defined(CONFIG_SOCKET_ROLE_CLIENT)

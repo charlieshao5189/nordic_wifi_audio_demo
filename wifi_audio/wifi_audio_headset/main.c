@@ -98,12 +98,10 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
-void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
+void streamctrl_send(void const *const data, size_t size)
 {
-	int ret;
+	int ret=0;
 	static int prev_ret;
-
-	struct le_audio_encoded_audio enc_audio = {.data = data, .size = size, .num_ch = num_ch};
 
 	if (strm_state == STATE_STREAMING) {
 		// ret = broadcast_source_send(0, enc_audio);
@@ -393,7 +391,6 @@ int socket_util_init(void){
 
         ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
         socket_util_set_rx_callback(wifi_audio_rx_data_handler);
-        // socket_util_set_rx_callback(socket_rx_handler);
 	return ret;
 }
 
@@ -420,15 +417,12 @@ int main(void)
 
 	ret = socket_util_init();
 	ERR_CHK(ret);
-        //TODO: Add target IP input and store it into settings.
 
         LOG_INF("audio_system_init"); 
 	ret = audio_system_init();
 	ERR_CHK(ret);
 
-        ret = audio_system_config_set(
-		48000,
-		9600, 0);
+        ret = audio_system_config_set(48000,16000,16000);
 	ERR_CHK_MSG(ret, "Failed to set sample- and bitrate");
 
         // audio_codec_opus_init();

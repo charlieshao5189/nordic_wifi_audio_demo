@@ -35,6 +35,7 @@
 enum sw_codec_select {
 	SW_CODEC_NONE,
 	SW_CODEC_LC3, /* Low Complexity Communication Codec */
+        SW_CODEC_OPUS,
 };
 
 enum sw_codec_channel_mode {

@@ -36,6 +36,18 @@ config USE_TCP_SOCKET
 
 endchoice # AUDIO_STREAM_ROL
 
+choice SOCKET_ROLE
+	prompt "Set socket role: server to listen for incoming connections or client to connect to a server"
+	default SOCKET_ROLE_SERVER
+
+config SOCKET_ROLE_SERVER
+	bool "Play as socket server to listen for incoming connections"
+
+config SOCKET_ROLE_CLIENT
+	bool "Play as socket client to connect to a server"
+
+endchoice # AUDIO_STREAM_ROL
+
 endmenu # "Audio Stream Transceiver"
 
 #----------------------------------------------------------------------------#

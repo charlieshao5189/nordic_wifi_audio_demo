@@ -113,27 +113,27 @@ int nrf5340_audio_dk_init(void)
 		return ret;
 	}
 
-	// if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
-	// 	ret = sd_card_init();
-	// 	if (ret != -ENODEV && ret != 0) {
-	// 		LOG_ERR("Failed to initialize SD card");
-	// 		return ret;
-	// 	}
-	// }
-
-	// ret = leds_set();
-	// if (ret) {
-	// 	LOG_ERR("Failed to set LEDs");
-	// 	return ret;
-	// }
-
-	// if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
-	// 	ret = sd_card_playback_init();
-	// 	if (ret) {
-	// 		LOG_ERR("Failed to initialize SD card playback");
-	// 		return ret;
-	// 	}
-	// }
+/* 	if (board_rev.mask & BOARD_VERSION_VALID_MSK_SD_CARD) {
+		ret = sd_card_init();
+		if (ret != -ENODEV && ret != 0) {
+			LOG_ERR("Failed to initialize SD card");
+			return ret;
+		}
+	}
+ */
+	ret = leds_set();
+	if (ret) {
+		LOG_ERR("Failed to set LEDs");
+		return ret;
+	}
+/* 
+	if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
+		ret = sd_card_playback_init();
+		if (ret) {
+			LOG_ERR("Failed to initialize SD card playback");
+			return ret;
+		}
+	} */
 
 	/* Use this to turn on 128 MHz clock for cpu_app */
 	ret = nrfx_clock_divider_set(NRF_CLOCK_DOMAIN_HFCLK, NRF_CLOCK_HFCLK_DIV_1);

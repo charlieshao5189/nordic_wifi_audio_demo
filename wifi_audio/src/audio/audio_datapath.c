@@ -357,127 +357,127 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
  * @param	sdu_ref_not_consecutive	True if sdu_ref_us and the previous sdu_ref_us
  *					originate from non-consecutive frames.
  */
-static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, uint32_t sdu_ref_us,
-						     bool sdu_ref_not_consecutive)
-{
-	if (ctrl_blk.drift_comp.state != DRIFT_STATE_LOCKED) {
-		/* Unconditionally reset state machine if drift compensation looses lock */
-		pres_comp_state_set(PRES_STATE_INIT);
-		return;
-	}
+// static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, uint32_t sdu_ref_us,
+// 						     bool sdu_ref_not_consecutive)
+// {
+// 	if (ctrl_blk.drift_comp.state != DRIFT_STATE_LOCKED) {
+// 		/* Unconditionally reset state machine if drift compensation looses lock */
+// 		pres_comp_state_set(PRES_STATE_INIT);
+// 		return;
+// 	}
 
-	/* Move presentation compensation into PRES_STATE_WAIT if sdu_ref_us and
-	 * the previous sdu_ref_us originate from non-consecutive frames.
-	 */
-	if (sdu_ref_not_consecutive) {
-		ctrl_blk.pres_comp.ctr = 0;
-		pres_comp_state_set(PRES_STATE_WAIT);
-	}
+// 	/* Move presentation compensation into PRES_STATE_WAIT if sdu_ref_us and
+// 	 * the previous sdu_ref_us originate from non-consecutive frames.
+// 	 */
+// 	if (sdu_ref_not_consecutive) {
+// 		ctrl_blk.pres_comp.ctr = 0;
+// 		pres_comp_state_set(PRES_STATE_WAIT);
+// 	}
 
-	int32_t wanted_pres_dly_us =
-		ctrl_blk.pres_comp.pres_delay_us - (recv_frame_ts_us - sdu_ref_us);
-	int32_t pres_adj_us = 0;
+// 	int32_t wanted_pres_dly_us =
+// 		ctrl_blk.pres_comp.pres_delay_us - (recv_frame_ts_us - sdu_ref_us);
+// 	int32_t pres_adj_us = 0;
 
-	switch (ctrl_blk.pres_comp.state) {
-	case PRES_STATE_INIT: {
-		ctrl_blk.pres_comp.ctr = 0;
-		ctrl_blk.pres_comp.sum_err_dly_us = 0;
-		pres_comp_state_set(PRES_STATE_MEAS);
+// 	switch (ctrl_blk.pres_comp.state) {
+// 	case PRES_STATE_INIT: {
+// 		ctrl_blk.pres_comp.ctr = 0;
+// 		ctrl_blk.pres_comp.sum_err_dly_us = 0;
+// 		pres_comp_state_set(PRES_STATE_MEAS);
 
-		break;
-	}
-	case PRES_STATE_MEAS: {
-		if (ctrl_blk.pres_comp.ctr++ < PRES_COMP_NUM_DATA_PTS) {
-			ctrl_blk.pres_comp.sum_err_dly_us +=
-				wanted_pres_dly_us - ctrl_blk.current_pres_dly_us;
+// 		break;
+// 	}
+// 	case PRES_STATE_MEAS: {
+// 		if (ctrl_blk.pres_comp.ctr++ < PRES_COMP_NUM_DATA_PTS) {
+// 			ctrl_blk.pres_comp.sum_err_dly_us +=
+// 				wanted_pres_dly_us - ctrl_blk.current_pres_dly_us;
 
-			/* Same state - Collect more data */
-			break;
-		}
+// 			/* Same state - Collect more data */
+// 			break;
+// 		}
 
-		ctrl_blk.pres_comp.ctr = 0;
+// 		ctrl_blk.pres_comp.ctr = 0;
 
-		pres_adj_us = ctrl_blk.pres_comp.sum_err_dly_us / PRES_COMP_NUM_DATA_PTS;
-		if ((pres_adj_us >= (BLK_PERIOD_US / 2)) || (pres_adj_us <= -(BLK_PERIOD_US / 2))) {
-			pres_comp_state_set(PRES_STATE_WAIT);
-		} else {
-			/* Drift compensation will always be in DRIFT_STATE_LOCKED here */
-			pres_comp_state_set(PRES_STATE_LOCKED);
-		}
+// 		pres_adj_us = ctrl_blk.pres_comp.sum_err_dly_us / PRES_COMP_NUM_DATA_PTS;
+// 		if ((pres_adj_us >= (BLK_PERIOD_US / 2)) || (pres_adj_us <= -(BLK_PERIOD_US / 2))) {
+// 			pres_comp_state_set(PRES_STATE_WAIT);
+// 		} else {
+// 			/* Drift compensation will always be in DRIFT_STATE_LOCKED here */
+// 			pres_comp_state_set(PRES_STATE_LOCKED);
+// 		}
 
-		break;
-	}
-	case PRES_STATE_WAIT: {
-		if (ctrl_blk.pres_comp.ctr++ >
-		    (FIFO_SMPL_PERIOD_US / CONFIG_AUDIO_FRAME_DURATION_US)) {
-			pres_comp_state_set(PRES_STATE_INIT);
-		}
+// 		break;
+// 	}
+// 	case PRES_STATE_WAIT: {
+// 		if (ctrl_blk.pres_comp.ctr++ >
+// 		    (FIFO_SMPL_PERIOD_US / CONFIG_AUDIO_FRAME_DURATION_US)) {
+// 			pres_comp_state_set(PRES_STATE_INIT);
+// 		}
 
-		break;
-	}
-	case PRES_STATE_LOCKED: {
-		/*
-		 * Presentation delay compensation moves into PRES_STATE_WAIT if sdu_ref_us
-		 * and the previous sdu_ref_us originate from non-consecutive frames, or into
-		 * PRES_STATE_INIT if drift compensation unlocks.
-		 */
+// 		break;
+// 	}
+// 	case PRES_STATE_LOCKED: {
+// 		/*
+// 		 * Presentation delay compensation moves into PRES_STATE_WAIT if sdu_ref_us
+// 		 * and the previous sdu_ref_us originate from non-consecutive frames, or into
+// 		 * PRES_STATE_INIT if drift compensation unlocks.
+// 		 */
 
-		break;
-	}
-	default: {
-		break;
-	}
-	}
+// 		break;
+// 	}
+// 	default: {
+// 		break;
+// 	}
+// 	}
 
-	if (pres_adj_us == 0) {
-		return;
-	}
+// 	if (pres_adj_us == 0) {
+// 		return;
+// 	}
 
-	if (pres_adj_us >= 0) {
-		pres_adj_us += (BLK_PERIOD_US / 2);
-	} else {
-		pres_adj_us += -(BLK_PERIOD_US / 2);
-	}
+// 	if (pres_adj_us >= 0) {
+// 		pres_adj_us += (BLK_PERIOD_US / 2);
+// 	} else {
+// 		pres_adj_us += -(BLK_PERIOD_US / 2);
+// 	}
 
-	/* Number of adjustment blocks is 0 as long as |pres_adj_us| < BLK_PERIOD_US */
-	int32_t pres_adj_blks = pres_adj_us / BLK_PERIOD_US;
+// 	/* Number of adjustment blocks is 0 as long as |pres_adj_us| < BLK_PERIOD_US */
+// 	int32_t pres_adj_blks = pres_adj_us / BLK_PERIOD_US;
 
-	if (pres_adj_blks > (FIFO_NUM_BLKS / 2)) {
-		/* Limit adjustment */
-		pres_adj_blks = FIFO_NUM_BLKS / 2;
+// 	if (pres_adj_blks > (FIFO_NUM_BLKS / 2)) {
+// 		/* Limit adjustment */
+// 		pres_adj_blks = FIFO_NUM_BLKS / 2;
 
-		LOG_WRN("Requested presentation delay out of range: pres_adj_us=%d", pres_adj_us);
-	} else if (pres_adj_blks < -(FIFO_NUM_BLKS / 2)) {
-		/* Limit adjustment */
-		pres_adj_blks = -(FIFO_NUM_BLKS / 2);
+// 		LOG_WRN("Requested presentation delay out of range: pres_adj_us=%d", pres_adj_us);
+// 	} else if (pres_adj_blks < -(FIFO_NUM_BLKS / 2)) {
+// 		/* Limit adjustment */
+// 		pres_adj_blks = -(FIFO_NUM_BLKS / 2);
 
-		LOG_WRN("Requested presentation delay out of range: pres_adj_us=%d", pres_adj_us);
-	}
+// 		LOG_WRN("Requested presentation delay out of range: pres_adj_us=%d", pres_adj_us);
+// 	}
 
-	if (pres_adj_blks > 0) {
-		LOG_DBG("Presentation delay inserted: pres_adj_blks=%d", pres_adj_blks);
+// 	if (pres_adj_blks > 0) {
+// 		LOG_DBG("Presentation delay inserted: pres_adj_blks=%d", pres_adj_blks);
 
-		/* Increase presentation delay */
-		for (int i = 0; i < pres_adj_blks; i++) {
-			/* Mute audio block */
-			memset(&ctrl_blk.out.fifo[ctrl_blk.out.prod_blk_idx * BLK_STEREO_NUM_SAMPS],
-			       0, BLK_STEREO_SIZE_OCTETS);
+// 		/* Increase presentation delay */
+// 		for (int i = 0; i < pres_adj_blks; i++) {
+// 			/* Mute audio block */
+// 			memset(&ctrl_blk.out.fifo[ctrl_blk.out.prod_blk_idx * BLK_STEREO_NUM_SAMPS],
+// 			       0, BLK_STEREO_SIZE_OCTETS);
 
-			/* Record producer block start reference */
-			ctrl_blk.out.prod_blk_ts[ctrl_blk.out.prod_blk_idx] =
-				recv_frame_ts_us - ((pres_adj_blks - i) * BLK_PERIOD_US);
+// 			/* Record producer block start reference */
+// 			ctrl_blk.out.prod_blk_ts[ctrl_blk.out.prod_blk_idx] =
+// 				recv_frame_ts_us - ((pres_adj_blks - i) * BLK_PERIOD_US);
 
-			ctrl_blk.out.prod_blk_idx = NEXT_IDX(ctrl_blk.out.prod_blk_idx);
-		}
-	} else if (pres_adj_blks < 0) {
-		LOG_DBG("Presentation delay removed: pres_adj_blks=%d", pres_adj_blks);
+// 			ctrl_blk.out.prod_blk_idx = NEXT_IDX(ctrl_blk.out.prod_blk_idx);
+// 		}
+// 	} else if (pres_adj_blks < 0) {
+// 		LOG_DBG("Presentation delay removed: pres_adj_blks=%d", pres_adj_blks);
 
-		/* Reduce presentation delay */
-		for (int i = 0; i > pres_adj_blks; i--) {
-			ctrl_blk.out.prod_blk_idx = PREV_IDX(ctrl_blk.out.prod_blk_idx);
-		}
-	}
-}
+// 		/* Reduce presentation delay */
+// 		for (int i = 0; i > pres_adj_blks; i--) {
+// 			ctrl_blk.out.prod_blk_idx = PREV_IDX(ctrl_blk.out.prod_blk_idx);
+// 		}
+// 	}
+// }
 
 static void tone_stop_worker(struct k_work *work)
 {
@@ -939,7 +939,7 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 
 	// /*** Decode ***/
 
-	int ret;
+	// int ret;
 	size_t pcm_size;
 
 	// ret = sw_codec_decode(buf, size, bad_frame, &ctrl_blk.decoded_data, &pcm_size);
