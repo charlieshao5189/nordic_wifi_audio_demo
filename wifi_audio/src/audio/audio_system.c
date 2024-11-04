@@ -19,10 +19,12 @@
 #include "hw_codec.h"
 #include "audio_usb.h"
 #include "streamctrl.h"
+#include "wifi_audio_rx.h"
 
 #if (CONFIG_SW_CODEC_OPUS)
 #include "opus_interface.h"
 ENC_Opus_ConfigTypeDef EncConfigOpus;   /*!< opus encode configuration.*/
+DEC_Opus_ConfigTypeDef DecConfigOpus;   /*!< opus encode configuration.*/
 # endif
 
 #include <zephyr/logging/log.h>
@@ -192,18 +194,20 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
                 #if (CONFIG_SW_CODEC_OPUS)
                         // Encode the audio data using Opus
                         LOG_INF("ENC_Opus_Encode!!!!!");
-                        encoded_bytes = ENC_Opus_Encode((opus_int16 *) pcm_raw_data, EncConfigOpus.pInternalMemory);
+                        LOG_HEXDUMP_INF(pcm_raw_data, 1920, "PCM Raw Data");
+                        k_sleep(K_SECONDS(1));
+                        encoded_bytes = ENC_Opus_Encode((uint8_t *) pcm_raw_data, EncConfigOpus.pInternalMemory);
                         if (encoded_bytes < 0) {
                                 LOG_ERR("Opus encoding failed: %s", opus_strerror(encoded_bytes));
                         } else {
                                 LOG_INF("Opus output data size: %zu bytes", encoded_bytes); // Log the size of the encoded OPUS data
-                                
-                                memcpy(opus_output, EncConfigOpus.pInternalMemory, encoded_bytes);
+                                // memcpy(opus_output, EncConfigOpus.pInternalMemory, encoded_bytes);
                                 // Send the encoded OPUS data
-                                streamctrl_send(opus_output, encoded_bytes);
+                                send_audio_frame(EncConfigOpus.pInternalMemory, encoded_bytes);
                         }
                 # else
-                        streamctrl_send(pcm_raw_data, FRAME_SIZE_BYTES);
+                        // send_audio_frame(uint8_t *audio_data, size_t data_length);
+                        send_audio_frame(pcm_raw_data, FRAME_SIZE_BYTES);
                 # endif //CONFIG_CODEC_OPUS
 		}
                
@@ -462,12 +466,15 @@ void audio_system_stop(void)
 	ERR_CHK(ret);
 #endif /* ((CONFIG_AUDIO_GATEWAY) && CONFIG_AUDIO_SOURCE_USB) */
 
-	ret = sw_codec_uninit(sw_codec_cfg);
-	ERR_CHK_MSG(ret, "Failed to uninit codec");
-	sw_codec_cfg.initialized = false;
+	// ret = sw_codec_uninit(sw_codec_cfg);
+	// ERR_CHK_MSG(ret, "Failed to uninit codec");
+	// sw_codec_cfg.initialized = false;
 
-	data_fifo_empty(&fifo_rx);
-	data_fifo_empty(&fifo_tx);
+	ret = data_fifo_empty(&fifo_rx);
+        ERR_CHK(ret);
+
+	ret = data_fifo_empty(&fifo_tx);
+        ERR_CHK(ret);
 }
 
 int audio_system_fifo_rx_block_drop(void)
@@ -497,13 +504,59 @@ int audio_system_init(void)
 {
 	int ret;
 
-#if (IS_ENABLED(CONFIG_AUDIO_GATEWAY) && (CONFIG_AUDIO_SOURCE_USB))
-	ret = audio_usb_init();
-	if (ret) {
-		LOG_ERR("Failed to initialize USB: %d", ret);
-		return ret;
-	}
-#else
+#if IS_ENABLED(CONFIG_AUDIO_GATEWAY)
+        #if (CONFIG_AUDIO_SOURCE_USB)
+                ret = audio_usb_init();
+                if (ret) {
+                        LOG_ERR("Failed to initialize USB: %d", ret);
+                        return ret;
+                }
+        #endif //CONFIG_AUDIO_SOURCE_USB
+
+        #if (CONFIG_SW_CODEC_OPUS)
+                Opus_Status status;
+                if(ENC_Opus_IsConfigured())
+                {
+                        return OPUS_SUCCESS;
+                }
+                EncConfigOpus.application = (uint16_t) OPUS_APPLICATION_AUDIO;
+                EncConfigOpus.bitrate = 16000;
+                EncConfigOpus.channels = 2;
+                EncConfigOpus.complexity = 5;
+                EncConfigOpus.ms_frame = 10;
+                EncConfigOpus.sample_freq = 48000;
+
+                uint32_t enc_size = ENC_Opus_getMemorySize(&EncConfigOpus);
+                LOG_INF("ENC_Opus_getMemorySize: %d", enc_size);
+                EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(enc_size);
+                int opus_err;
+                status = ENC_Opus_Init(&EncConfigOpus, &opus_err);
+
+                if(status != OPUS_SUCCESS)
+                {
+                        return opus_err;
+                }
+
+                status = ENC_Opus_Force_CELTmode();
+                if(status != OPUS_SUCCESS)
+                {
+                        return opus_err;
+                }
+                
+                // status = ENC_Opus_Set_VBR();
+                // if(status != OPUS_SUCCESS)
+                // {
+                // return OPUS_ERROR;
+                // }
+
+                // status = ENC_Opus_Set_CBR();
+                // if(status != OPUS_SUCCESS)
+                // {
+                // return OPUS_ERROR;
+                // }
+
+        #endif //CONFIG_SW_CODEC_OPUS
+#elif IS_ENABLED(CONFIG_AUDIO_HEADSET)
 	ret = audio_datapath_init();
 	if (ret) {
 		LOG_ERR("Failed to initialize audio datapath: %d", ret);
@@ -515,51 +568,33 @@ int audio_system_init(void)
 		LOG_ERR("Failed to initialize HW codec: %d", ret);
 		return ret;
 	}
+        #if (CONFIG_SW_CODEC_OPUS)
+                Opus_Status status;
+                if(DEC_Opus_IsConfigured())
+                {
+                        return OPUS_SUCCESS;
+                }
+                
+                DecConfigOpus.ms_frame = 10;
+                DecConfigOpus.sample_freq = 48000;
+                DecConfigOpus.channels = 2;
+
+                uint32_t enc_size = DEC_Opus_getMemorySize(&DecConfigOpus);
+                LOG_INF("DEC_Opus_getMemorySize: %d", enc_size);
+                DecConfigOpus.pInternalMemory = (uint8_t *)k_malloc(enc_size);
+                int opus_err;
+                status = DEC_Opus_Init(&DecConfigOpus, &opus_err);
+
+                if(status != OPUS_SUCCESS)
+                {
+                        return opus_err;
+                }
+
+        #endif //CONFIG_SW_CODEC_OPUS
+
 #endif
 	k_poll_signal_init(&encoder_sig);
 
-#if (CONFIG_SW_CODEC_OPUS)
-        Opus_Status status;
-        if(ENC_Opus_IsConfigured())
-        {
-                return OPUS_SUCCESS;
-        }
-        EncConfigOpus.application = (uint16_t) OPUS_APPLICATION_AUDIO;
-        EncConfigOpus.bitrate = 16000;
-        EncConfigOpus.channels = 2;
-        EncConfigOpus.complexity = 5;
-        EncConfigOpus.ms_frame = 10;
-        EncConfigOpus.sample_freq = 48000;
-
-        uint32_t enc_size = ENC_Opus_getMemorySize(&EncConfigOpus);
-        LOG_INF("ENC_Opus_getMemorySize: %d", enc_size);
-        EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(enc_size);
-        int opus_err;
-        status = ENC_Opus_Init(&EncConfigOpus, &opus_err);
-
-        if(status != OPUS_SUCCESS)
-        {
-                return opus_err;
-        }
-
-        status = ENC_Opus_Force_CELTmode();
-        if(status != OPUS_SUCCESS)
-        {
-                return opus_err;
-        }
-        // status = ENC_Opus_Set_VBR();
-        // if(status != OPUS_SUCCESS)
-        // {
-        // return OPUS_ERROR;
-        // }
-
-        // status = ENC_Opus_Set_CBR();
-        // if(status != OPUS_SUCCESS)
-        // {
-        // return OPUS_ERROR;
-        // }
-
-# endif //CONFIG_SW_CODEC_OPUS
 	return 0;
 }
 

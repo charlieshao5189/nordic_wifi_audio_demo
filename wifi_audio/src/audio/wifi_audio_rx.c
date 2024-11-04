@@ -12,6 +12,8 @@
 #include "macros_common.h"
 #include "audio_system.h"
 #include "audio_sync_timer.h"
+#include "wifi_audio_rx.h"
+#include "socket_util.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(wifi_audio_rx, CONFIG_WIFI_AUDIO_RX_LOG_LEVEL);
@@ -149,36 +151,61 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 
 
 #define TOTAL_PACKET_SIZE (1024 + 896)  // Total size of the two packets to be assembled
-#define MAX_PACKET_SIZE 1920            // Maximum packet size after assembly (1024 + 896)
+
+#define MAX_AUDIO_FRAME_SIZE 1920
+#define HEADER_SIZE 3          // Start sequence (2 bytes) + identifier (1 byte)
+#define FOOTER_SIZE 2          // End sequence (2 bytes)
+#define FULL_FRAME_SIZE (HEADER_SIZE + MAX_AUDIO_FRAME_SIZE + FOOTER_SIZE)
 
 void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
-    static uint8_t assembled_data[MAX_PACKET_SIZE];  // Buffer to hold the assembled data
-    static size_t assembled_size = 0;                // Keeps track of how much data has been assembled
+    // Static buffer to store accumulated data
+    static uint8_t frame_buffer[FULL_FRAME_SIZE];  // Buffer sized for a full frame with headers and footers
+    static size_t current_frame_size = 0;
 
-    // Ensure that the incoming data won't overflow the buffer
-    if (assembled_size + data_size > MAX_PACKET_SIZE) {
-        LOG_WRN("Data overflow: Incoming data exceeds buffer capacity.\r\n assembeled_size: %zu, data_size: %zu\n", assembled_size, data_size);
-				assembled_size = 0; // Reset the buffer, discards the data
+    // Copy incoming data chunk to frame buffer if it fits
+    if (current_frame_size + data_size > FULL_FRAME_SIZE) {
+        LOG_ERR("Frame buffer overflow, discarding accumulated data.");
+        current_frame_size = 0;  // Reset if overflowed
         return;
     }
 
-    // Copy the incoming data into the assembly buffer
-    memcpy(assembled_data + assembled_size, p_data, data_size);
-    assembled_size += data_size;
+    memcpy(frame_buffer + current_frame_size, p_data, data_size);
+    current_frame_size += data_size;
 
-    // Check if the buffer contains the full packet (1024 + 896 = 1920 bytes)
-    if (assembled_size == TOTAL_PACKET_SIZE) {
-        // Full packet has been received, process the assembled data
-        LOG_INF("Assembled complete packet of size %zu\n", assembled_size);
-        // You can now process the assembled data here...
-        audio_data_frame_process(assembled_data, assembled_size) ;
-        // Reset the buffer for future packets
-        assembled_size = 0;
-    } else {
-        // Still waiting for more data
-        LOG_INF("Waiting for more data... Assembled so far: %zu bytes\n", assembled_size);
+    // Check if we have at least the minimum size for a complete frame
+    if (current_frame_size >= HEADER_SIZE + FOOTER_SIZE) {
+        // Verify start sequence
+        if (frame_buffer[0] == START_SEQUENCE_1 && frame_buffer[1] == START_SEQUENCE_2) {
+            // Check for end sequence at the expected position
+            if (current_frame_size >= HEADER_SIZE + FOOTER_SIZE &&
+                frame_buffer[current_frame_size - 2] == END_SEQUENCE_1 &&
+                frame_buffer[current_frame_size - 1] == END_SEQUENCE_2) {
+
+                // Verify the identifier
+                if (frame_buffer[2] == SEND_DATA_SIGN) {
+                    // Calculate audio data length
+                    size_t audio_data_length = current_frame_size - HEADER_SIZE - FOOTER_SIZE;
+                    if (audio_data_length <= MAX_AUDIO_FRAME_SIZE) {
+                        // Process the audio data
+                        audio_data_frame_process(frame_buffer + HEADER_SIZE, audio_data_length);
+                        LOG_INF("Audio frame data length: %d", audio_data_length);
+                    } else {
+                        LOG_ERR("Audio data length exceeds maximum frame size.");
+                    }
+                } else {
+                    LOG_ERR("Unexpected data identifier.");
+                }
+
+                // Reset buffer for the next frame
+                current_frame_size = 0;
+            }
+        } else {
+            LOG_ERR("Invalid start sequence, discarding packet.");
+            current_frame_size = 0;  // Reset on invalid start sequence
+        }
     }
-}	
+}
+
 
 
 /**
@@ -246,4 +273,49 @@ int wifi_audio_rx_init(void)
 	initialized = true;
 
 	return 0;
+}
+
+void send_audio_command(uint8_t audio_command) {
+    // Define the command packet with placeholders for start, command, and end
+    uint8_t command_packet[] = {
+        START_SEQUENCE_1,   // 0xFF
+        START_SEQUENCE_2,   // 0xAA
+        SEND_CMD_SIGN,               // 0x00 command; 0x01 data
+        audio_command,      // Command: Variable (e.g., AUDIO_START_CMD or AUDIO_STOP_CMD)
+        END_SEQUENCE_1,     // 0xFF
+        END_SEQUENCE_2      // 0xBB
+    };
+
+    size_t packet_size = sizeof(command_packet);  // Calculate packet size
+    socket_util_tx_data((uint8_t *)command_packet, packet_size);
+}
+
+void send_audio_frame(uint8_t *audio_data, size_t data_length) {
+    // Define the data packet size, including start and end sequences
+    size_t total_packet_size = 5 + data_length;  // 4 bytes for headers + data_length
+
+    // Create a buffer for the complete data packet
+    uint8_t *data_packet = (uint8_t *)k_malloc(total_packet_size);
+    if (data_packet == NULL) {
+        LOG_ERR("Memory allocation failed for data_packet.");
+        return;
+    }
+
+    // Fill the data packet with the specified format
+    data_packet[0] = START_SEQUENCE_1;   // 0xFF
+    data_packet[1] = START_SEQUENCE_2;   // 0xAA
+    data_packet[2] = SEND_DATA_SIGN;                // Data identifier (can be changed as needed)
+
+    // Copy the audio data into the packet starting at the offset for the actual data
+    bytecpy(data_packet + 3, audio_data, data_length); // 3rd byte is data identifier
+
+    // Fill the end header
+    data_packet[total_packet_size - 2] = END_SEQUENCE_1; // 0xFF
+    data_packet[total_packet_size - 1] = END_SEQUENCE_2; // 0xBB
+
+    // Send the prepared data packet
+    socket_util_tx_data(data_packet, total_packet_size);
+
+    // Free allocated memory
+    k_free(data_packet);
 }

@@ -7,6 +7,19 @@
 #ifndef _WIFI_AUDIO_RX_H_
 #define _WIFI_AUDIO_RX_H_
 
+#define START_SEQUENCE_1 0xFF
+#define START_SEQUENCE_2 0xAA
+#define END_SEQUENCE_1 0xFF
+#define END_SEQUENCE_2 0xBB
+#define SEND_CMD_SIGN 0x00
+#define SEND_DATA_SIGN 0x01
+#define AUDIO_START_CMD 0x00
+#define AUDIO_STOP_CMD  0x01
+
+void send_audio_command(uint8_t audio_command);
+
+void send_audio_frame(uint8_t *audio_data, size_t data_length);
+
 /**
  * @brief Data handler when audio data has been received through WiFi.
  *
@@ -43,3 +56,4 @@ struct le_audio_encoded_audio {
 };
 
 #endif /* _WIFI_AUDIO_RX_H_ */
+

@@ -10,7 +10,7 @@ enum wifi_modes {
         WIFI_SOFTAP_MODE,
 };
 
-typedef void (*net_util_socket_rx_callback_t)(uint8_t *data, uint16_t len);
+typedef void (*net_util_socket_rx_callback_t)(uint8_t *data, size_t len);
 
 void socket_util_set_rx_callback(net_util_socket_rx_callback_t socket_rx_callback);
 int socket_util_tx_data(uint8_t *data, size_t length);
@@ -22,7 +22,7 @@ void socket_util_thread(void);
 
 typedef struct {
     uint8_t buf[BUFFER_MAX_SIZE];
-    uint32_t len;
+    size_t len;
 } socket_receive_t;
 
 extern struct k_msgq socket_recv_queue;

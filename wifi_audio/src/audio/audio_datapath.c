@@ -29,6 +29,12 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
+#if (CONFIG_SW_CODEC_OPUS)
+#include "opus_interface.h"
+extern DEC_Opus_ConfigTypeDef DecConfigOpus; /*!< opus encode configuration.*/
+int numDec = 0;                              /*Number of decoded samples or @ref opus_errorcodes.*/
+#endif
+
 /*
  * Terminology
  *   - sample: signed integer of audio waveform amplitude
@@ -42,9 +48,9 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 #define BLK_PERIOD_US 1000
 
 /* Total sample FIFO period in microseconds */
-#define FIFO_SMPL_PERIOD_US (CONFIG_AUDIO_MAX_PRES_DLY_US * 2) //60000*2us=120ms
-#define FIFO_NUM_BLKS	    NUM_BLKS(FIFO_SMPL_PERIOD_US) //120ms/1s=120 blocks
-#define MAX_FIFO_SIZE	    (FIFO_NUM_BLKS * BLK_SIZE_SAMPLES(CONFIG_AUDIO_SAMPLE_RATE_HZ) * 2)
+#define FIFO_SMPL_PERIOD_US (CONFIG_AUDIO_MAX_PRES_DLY_US * 2) // 60000*2us=120ms
+#define FIFO_NUM_BLKS       NUM_BLKS(FIFO_SMPL_PERIOD_US)      // 120ms/1s=120 blocks
+#define MAX_FIFO_SIZE       (FIFO_NUM_BLKS * BLK_SIZE_SAMPLES(CONFIG_AUDIO_SAMPLE_RATE_HZ) * 2)
 
 /* Number of audio blocks given a duration */
 #define NUM_BLKS(d) ((d) / BLK_PERIOD_US)
@@ -55,7 +61,7 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 /* Increment sample FIFO index by one block */
 #define NEXT_IDX(i) (((i) < (FIFO_NUM_BLKS - 1)) ? ((i) + 1) : 0)
 /* Decrement sample FIFO index by one block */
-#define PREV_IDX(i) (((i) > 0) ? ((i)-1) : (FIFO_NUM_BLKS - 1))
+#define PREV_IDX(i) (((i) > 0) ? ((i) - 1) : (FIFO_NUM_BLKS - 1))
 
 #define NUM_BLKS_IN_FRAME      NUM_BLKS(CONFIG_AUDIO_FRAME_DURATION_US)
 #define BLK_MONO_NUM_SAMPS     BLK_SIZE_SAMPLES(CONFIG_AUDIO_SAMPLE_RATE_HZ)
@@ -70,22 +76,22 @@ LOG_MODULE_REGISTER(audio_datapath, CONFIG_AUDIO_DATAPATH_LOG_LEVEL);
 
 /* Audio clock - nRF5340 Analog Phase-Locked Loop (APLL) */
 #define APLL_FREQ_CENTER 39854
-#define APLL_FREQ_MIN	 36834
-#define APLL_FREQ_MAX	 42874
+#define APLL_FREQ_MIN    36834
+#define APLL_FREQ_MAX    42874
 /* Use nanoseconds to reduce rounding errors */
 /* clang-format off */
 #define APLL_FREQ_ADJ(t) (-((t)*1000) / 331)
 /* clang-format on */
 
-#define DRIFT_MEAS_PERIOD_US	   100000
-#define DRIFT_ERR_THRESH_LOCK	   16
-#define DRIFT_ERR_THRESH_UNLOCK	   32
+#define DRIFT_MEAS_PERIOD_US       100000
+#define DRIFT_ERR_THRESH_LOCK      16
+#define DRIFT_ERR_THRESH_UNLOCK    32
 /* To get smaller corrections */
 #define DRIFT_REGULATOR_DIV_FACTOR 2
 
 /* To allow BLE transmission and (host -> HCI -> controller) */
 #define JUST_IN_TIME_TARGET_DLY_US 3000
-#define JUST_IN_TIME_BOUND_US	   2500
+#define JUST_IN_TIME_BOUND_US      2500
 
 /* How often to print under-run warning */
 #define UNDERRUN_LOG_INTERVAL_BLKS 5000
@@ -357,8 +363,8 @@ static void pres_comp_state_set(enum pres_comp_state new_state)
  * @param	sdu_ref_not_consecutive	True if sdu_ref_us and the previous sdu_ref_us
  *					originate from non-consecutive frames.
  */
-// static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, uint32_t sdu_ref_us,
-// 						     bool sdu_ref_not_consecutive)
+// static void audio_datapath_presentation_compensation(uint32_t recv_frame_ts_us, uint32_t
+// sdu_ref_us, 						     bool sdu_ref_not_consecutive)
 // {
 // 	if (ctrl_blk.drift_comp.state != DRIFT_STATE_LOCKED) {
 // 		/* Unconditionally reset state machine if drift compensation looses lock */
@@ -882,8 +888,8 @@ void audio_datapath_pres_delay_us_get(uint32_t *delay_us)
 	*delay_us = ctrl_blk.pres_comp.pres_delay_us;
 }
 
-// void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref_us, bool bad_frame,
-// 			       uint32_t recv_frame_ts_us)
+// void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref_us, bool
+// bad_frame, 			       uint32_t recv_frame_ts_us)
 void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 {
 	if (!ctrl_blk.stream_started) {
@@ -939,8 +945,14 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 
 	// /*** Decode ***/
 
-	// int ret;
 	size_t pcm_size;
+
+#if (CONFIG_SW_CODEC_OPUS)
+	int numDec = DEC_Opus_Decode((uint8_t *)buf, size, DecConfigOpus.pInternalMemory);
+	LOG_INF("numDec: %d", numDec);
+	LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
+	k_sleep(K_SECONDS(1));
+#endif
 
 	// ret = sw_codec_decode(buf, size, bad_frame, &ctrl_blk.decoded_data, &pcm_size);
 	// if (ret) {
@@ -959,13 +971,13 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 	// 	/* Discard frame */
 	// 	return;
 	// }
-        //pcm_size = 1920
-        pcm_size = BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME;
+	// pcm_size = 1920
+	pcm_size = BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME;
 	/*** Add audio data to FIFO buffer ***/
 
 	int32_t num_blks_in_fifo = ctrl_blk.out.prod_blk_idx - ctrl_blk.out.cons_blk_idx;
-        // FIFO_NUM_BLKS = 120
-        // NUM_BLKS_IN_FRAME = 10
+	// FIFO_NUM_BLKS = 120
+	// NUM_BLKS_IN_FRAME = 10
 	if ((num_blks_in_fifo + NUM_BLKS_IN_FRAME) > FIFO_NUM_BLKS) {
 		LOG_WRN("Output audio stream overrun - Discarding audio frame");
 
@@ -975,14 +987,24 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 
 	uint32_t out_blk_idx = ctrl_blk.out.prod_blk_idx;
 
-        // BLK_STEREO_NUM_SAMPS = 96
-        // BLK_STEREO_SIZE_OCTETS = 192
+	// BLK_STEREO_NUM_SAMPS = 96
+	// BLK_STEREO_SIZE_OCTETS = 192
 	for (uint32_t i = 0; i < NUM_BLKS_IN_FRAME; i++) {
 		if (IS_ENABLED(CONFIG_AUDIO_BIT_DEPTH_16)) {
+#if (CONFIG_SW_CODEC_OPUS)
 			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
-			//        &((int16_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],
-                                &((int16_t *)buf)[i * BLK_STEREO_NUM_SAMPS],
+			       //        &((int16_t *)ctrl_blk.decoded_data)[i *
+			       //        BLK_STEREO_NUM_SAMPS],
+			       &((int16_t *)
+					 DecConfigOpus.pInternalMemory)[i * BLK_STEREO_NUM_SAMPS],
 			       BLK_STEREO_SIZE_OCTETS);
+#else
+			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
+			       //        &((int16_t *)ctrl_blk.decoded_data)[i *
+			       //        BLK_STEREO_NUM_SAMPS],
+			       &((int16_t *)buf)[i * BLK_STEREO_NUM_SAMPS], BLK_STEREO_SIZE_OCTETS);
+#endif
+
 		} else if (IS_ENABLED(CONFIG_AUDIO_BIT_DEPTH_32)) {
 			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
 			       &((int32_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],

@@ -26,6 +26,7 @@
 #include "streamctrl.h"
 #include "socket_util.h"
 #include "wifi_audio_rx.h"
+#include "hw_codec.h"
 
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/heap_listener.h>
@@ -118,28 +119,6 @@ void streamctrl_send(void const *const data, size_t size)
 	}
 }
 
-#define START_SEQUENCE_1 0xFF
-#define START_SEQUENCE_2 0xAA
-#define END_SEQUENCE_1 0xFF
-#define END_SEQUENCE_2 0xBB
-#define AUDIO_START_CMD 0x00
-#define AUDIO_STOP_CMD  0x01
-
-void send_audio_command(uint8_t audio_command) {
-    // Define the command packet with placeholders for start, command, and end
-    uint8_t command_packet[] = {
-        START_SEQUENCE_1,   // 0xFF
-        START_SEQUENCE_2,   // 0xAA
-        audio_command,      // Command: Variable (e.g., AUDIO_START_CMD or AUDIO_STOP_CMD)
-        END_SEQUENCE_1,     // 0xFF
-        END_SEQUENCE_2      // 0xBB
-    };
-
-    size_t packet_size = sizeof(command_packet);  // Calculate packet size
-
-    // Send the command using streamctrl_send
-    socket_util_tx_data((void const *)command_packet, packet_size);
-}
 
 /**
  * @brief	Handle button activity.

@@ -25,6 +25,7 @@
 #include "fw_info_app.h"
 #include "streamctrl.h"
 #include "socket_util.h"
+#include "wifi_audio_rx.h"
 #include <zephyr/bluetooth/audio/audio.h>
 
 #include <zephyr/logging/log.h>
@@ -129,14 +130,7 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
-#define START_SEQUENCE_1 0xFF
-#define START_SEQUENCE_2 0xAA
-#define END_SEQUENCE_1 0xFF
-#define END_SEQUENCE_2 0xBB
-#define AUDIO_START_CMD 0x00
-#define AUDIO_STOP_CMD  0x01
-
-void socket_rx_handler(uint8_t *socket_rx_buf, uint16_t len){
+void socket_rx_handler(uint8_t *socket_rx_buf, size_t len){
     if (len < 5) {
         // Not enough data for start and end sequence
         LOG_INF("Received buffer too short\n");
@@ -144,10 +138,10 @@ void socket_rx_handler(uint8_t *socket_rx_buf, uint16_t len){
     }
 
     // Check if it starts with 0xFF 0xAA
-    if (socket_rx_buf[0] == START_SEQUENCE_1 && socket_rx_buf[1] == START_SEQUENCE_2 ){
+    if (socket_rx_buf[0] == START_SEQUENCE_1 && socket_rx_buf[1] == START_SEQUENCE_2 && socket_rx_buf[2] == SEND_CMD_SIGN ){
         // Check if it ends with 0xFF 0xBB
         if (socket_rx_buf[len - 2] == END_SEQUENCE_1 && socket_rx_buf[len - 1] == END_SEQUENCE_2 ){
-            uint8_t command = socket_rx_buf[2];  // Command byte (third byte)
+            uint8_t command = socket_rx_buf[3];  // Command byte (third byte)
             
             switch (command) {
                 case AUDIO_START_CMD:
