@@ -436,10 +436,8 @@ int main(void)
 	ret = audio_system_init();
 	ERR_CHK(ret);
 
-        ret = audio_system_config_set(
-		48000,
-		9600, 0);
-	ERR_CHK_MSG(ret, "Failed to set sample- and bitrate");
+        ret = audio_system_config_set(48000, 16000, 0);
+	ERR_CHK_MSG(ret, "Failed to set sample and bitrate for encoder");
 
         audio_system_start();
 

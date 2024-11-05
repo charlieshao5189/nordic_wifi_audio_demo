@@ -401,10 +401,9 @@ int main(void)
 	ret = audio_system_init();
 	ERR_CHK(ret);
 
-        ret = audio_system_config_set(48000,16000,16000);
-	ERR_CHK_MSG(ret, "Failed to set sample- and bitrate");
-
-        // audio_codec_opus_init();
+        ret = audio_system_config_set(48000, 0, 48000);
+	ERR_CHK_MSG(ret, "Failed to set sample rate for decoder");
+        
         audio_system_start();
 
         ret = zbus_subscribers_create();

@@ -944,20 +944,24 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 	// }
 
 	// /*** Decode ***/
+        
+        
+	size_t pcm_size=0;
 
-	size_t pcm_size;
+        #if (CONFIG_SW_CODEC_OPUS)
+                int ret;
+                // int numDec = DEC_Opus_Decode((uint8_t *)buf, size, DecConfigOpus.pInternalMemory);
+                // LOG_INF("numDec: %d", numDec);
+                // LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
+                // k_sleep(K_SECONDS(1));
 
-#if (CONFIG_SW_CODEC_OPUS)
-	int numDec = DEC_Opus_Decode((uint8_t *)buf, size, DecConfigOpus.pInternalMemory);
-	LOG_INF("numDec: %d", numDec);
-	LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
-	k_sleep(K_SECONDS(1));
-#endif
-
-	// ret = sw_codec_decode(buf, size, bad_frame, &ctrl_blk.decoded_data, &pcm_size);
-	// if (ret) {
-	// 	LOG_WRN("SW codec decode error: %d", ret);
-	// }
+                ret = sw_codec_decode(buf, size, 0, &ctrl_blk.decoded_data, &pcm_size);
+                if (ret) {
+                        LOG_WRN("SW codec decode error: %d", ret);
+                }
+        #else
+                pcm_size = BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME;
+        #endif
 
 	// if (IS_ENABLED(CONFIG_SD_CARD_PLAYBACK)) {
 	// 	if (sd_card_playback_is_active()) {
@@ -965,14 +969,14 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 	// 	}
 	// }
 
-	// if (pcm_size != (BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME)) {
-	// 	LOG_WRN("Decoded audio has wrong size: %d. Expected: %d", pcm_size,
-	// 		(BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME));
-	// 	/* Discard frame */
-	// 	return;
-	// }
-	// pcm_size = 1920
-	pcm_size = BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME;
+	if (pcm_size != (BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME)) {
+		LOG_WRN("Decoded audio has wrong size: %d. Expected: %d", pcm_size,
+			(BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME));
+		/* Discard frame */
+		return;
+	}
+	// // pcm_size = 1920
+	// pcm_size = BLK_STEREO_SIZE_OCTETS * NUM_BLKS_IN_FRAME;
 	/*** Add audio data to FIFO buffer ***/
 
 	int32_t num_blks_in_fifo = ctrl_blk.out.prod_blk_idx - ctrl_blk.out.cons_blk_idx;
@@ -993,18 +997,12 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 		if (IS_ENABLED(CONFIG_AUDIO_BIT_DEPTH_16)) {
 #if (CONFIG_SW_CODEC_OPUS)
 			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
-			       //        &((int16_t *)ctrl_blk.decoded_data)[i *
-			       //        BLK_STEREO_NUM_SAMPS],
-			       &((int16_t *)
-					 DecConfigOpus.pInternalMemory)[i * BLK_STEREO_NUM_SAMPS],
+			       &((int16_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],
 			       BLK_STEREO_SIZE_OCTETS);
-#else
-			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
-			       //        &((int16_t *)ctrl_blk.decoded_data)[i *
-			       //        BLK_STEREO_NUM_SAMPS],
-			       &((int16_t *)buf)[i * BLK_STEREO_NUM_SAMPS], BLK_STEREO_SIZE_OCTETS);
-#endif
-
+#else 
+                        memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
+                                                &((int16_t *)buf)[i * BLK_STEREO_NUM_SAMPS], BLK_STEREO_SIZE_OCTETS);
+#endif // CONFIG_SW_CODEC_OPUS
 		} else if (IS_ENABLED(CONFIG_AUDIO_BIT_DEPTH_32)) {
 			memcpy(&ctrl_blk.out.fifo[out_blk_idx * BLK_STEREO_NUM_SAMPS],
 			       &((int32_t *)ctrl_blk.decoded_data)[i * BLK_STEREO_NUM_SAMPS],
