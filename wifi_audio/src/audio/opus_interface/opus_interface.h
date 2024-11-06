@@ -14,6 +14,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "opus.h"
+#include "opus_defines.h"
 #include "opus_private.h"
 
 /* Exported types ------------------------------------------------------------*/

@@ -6,7 +6,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "opus_interface.h"
-
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(opus_interface, CONFIG_AUDIO_SYSTEM_LOG_LEVEL);
 
@@ -81,13 +81,27 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus,  int *opus_err
   hOpus.max_enc_frame_size = (ENC_configOpus->bitrate/8/((uint16_t)(1000.0f/ENC_configOpus->ms_frame)))*2;// Opus output frame data size 40 Bytes
 
   /*Encoder Init*/
-  hOpus.Encoder = opus_encoder_create(ENC_configOpus->sample_freq, ENC_configOpus->channels, ENC_configOpus->application, opus_err);
+//   hOpus.Encoder = opus_encoder_create(ENC_configOpus->sample_freq, ENC_configOpus->channels, ENC_configOpus->application, opus_err);
+   size_t encoder_size = opus_encoder_get_size(ENC_configOpus->channels);
+   LOG_INF("Encoder will allocate memory of size: %d",encoder_size);
+   hOpus.Encoder = (OpusEncoder *)k_malloc(encoder_size); 
+   if (hOpus.Encoder == NULL) {
+        *opus_err = OPUS_ALLOC_FAIL;
+        return OPUS_ERROR;
+   }
+   *opus_err = opus_encoder_init(hOpus.Encoder, ENC_configOpus->sample_freq, ENC_configOpus->channels, ENC_configOpus->application);
 
-  if (*opus_err != OPUS_OK) 
+  if (*opus_err != OPUS_SUCCESS) 
   {
     return OPUS_ERROR;
   }
   
+        status = ENC_Opus_Force_CELTmode();
+        if(status != OPUS_SUCCESS)
+        {
+        return OPUS_ERROR;
+        }
+
   /*Bitrate set*/
   status = ENC_Opus_Set_Bitrate(ENC_configOpus->bitrate, opus_err);
   if (status != OPUS_SUCCESS)
@@ -102,6 +116,54 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus,  int *opus_err
     return OPUS_ERROR;
   }
   
+  status = ENC_Opus_Set_VBR();
+  if (status != OPUS_SUCCESS) 
+  {
+        return OPUS_ERROR;
+  }
+
+  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_LSB_DEPTH(16));
+  if (status != OPUS_SUCCESS) 
+  {
+        return OPUS_ERROR;
+  }
+
+  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE));
+  if (status != OPUS_SUCCESS) 
+  {
+        return OPUS_ERROR;
+  }
+
+  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_DTX(0));//No fec in celt mode
+  if (status != OPUS_SUCCESS) 
+  {
+        return OPUS_ERROR;
+  }
+
+//   status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_PACKET_LOSS_PERC(CONFIG_LOSS_PERC));
+//   if (status != OPUS_SUCCESS) 
+//   {
+//         return OPUS_ERROR;
+//   }
+
+  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
+  if (status != OPUS_SUCCESS) 
+  {
+        return OPUS_ERROR;
+  }
+
+  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_FORCE_CHANNELS(2));
+  if (status != OPUS_SUCCESS) 
+  {
+        return OPUS_ERROR;
+  }
+
+  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_10_MS));
+  if (status != OPUS_SUCCESS) 
+  {
+        return OPUS_ERROR;
+  }      
+
   hOpus.ENC_configured = 1;
 
   return OPUS_SUCCESS;
@@ -114,7 +176,8 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus,  int *opus_err
  */
 void ENC_Opus_Deinit(void)
 {
-  opus_encoder_destroy(hOpus.Encoder);
+//   opus_encoder_destroy(hOpus.Encoder);
+  k_free(hOpus.Encoder);
   hOpus.ENC_configured = 0;
   hOpus.ENC_frame_size = 0;
   hOpus.max_enc_frame_size = 0;
@@ -139,12 +202,20 @@ uint8_t ENC_Opus_IsConfigured(void)
 Opus_Status DEC_Opus_Init(DEC_Opus_ConfigTypeDef *DEC_configOpus, int *opus_err) 
 {
   *opus_err = 0;
-  hOpus.DEC_frame_size = ((uint32_t)(((float)(DEC_configOpus->sample_freq/1000))*DEC_configOpus->ms_frame));
+  hOpus.DEC_frame_size = ((uint32_t)(((float)(DEC_configOpus->sample_freq/1000))*DEC_configOpus->ms_frame)); //480 Bytes
 
   /*Decoder Init*/
-  hOpus.Decoder = opus_decoder_create(DEC_configOpus->sample_freq, DEC_configOpus->channels, opus_err);
+//   hOpus.Decoder = opus_decoder_create(DEC_configOpus->sample_freq, DEC_configOpus->channels, opus_err);
+   int decoder_size = opus_decoder_get_size(DEC_configOpus->channels);
+   LOG_INF("Decoder will allocate memory of size: %d",decoder_size);
+   hOpus.Decoder = (OpusDecoder *)k_malloc(decoder_size); 
+   if (hOpus.Decoder == NULL) {
+        *opus_err = OPUS_ALLOC_FAIL;
+        return OPUS_ERROR;
+   }
+   *opus_err = opus_decoder_init(hOpus.Decoder, DEC_configOpus->sample_freq, DEC_configOpus->channels);
   
-  if (*opus_err != OPUS_OK) 
+  if (*opus_err != OPUS_SUCCESS) 
   {
     return OPUS_ERROR;
   }
@@ -161,8 +232,8 @@ Opus_Status DEC_Opus_Init(DEC_Opus_ConfigTypeDef *DEC_configOpus, int *opus_err)
  */
 void DEC_Opus_Deinit(void) 
 { 
-  opus_decoder_destroy(hOpus.Decoder);
-  
+//   opus_decoder_destroy(hOpus.Decoder);
+  k_free(hOpus.Decoder);
   hOpus.DEC_configured = 0;
   hOpus.DEC_frame_size = 0;
 }

@@ -585,10 +585,9 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
                                 EncConfigOpus.ms_frame = 10;
                                 EncConfigOpus.sample_freq = 48000;
 
-                                uint32_t enc_size = ENC_Opus_getMemorySize(&EncConfigOpus);
-                                LOG_INF("ENC_Opus_getMemorySize: %d", enc_size);
-
-                                EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(enc_size);
+                                uint32_t max_opus_frame_size = ENC_Opus_getMemorySize(&EncConfigOpus);
+                                LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
+                                EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
                                 if (EncConfigOpus.pInternalMemory == NULL) {
                                 LOG_ERR("Memory allocation failed for Opus encoder.");
                                 return -ENOMEM;  // or appropriate error code
@@ -604,27 +603,6 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
                                         }
                                         return opus_err;
                                 }
-
-                                status = ENC_Opus_Force_CELTmode();
-                                if(status != OPUS_SUCCESS)
-                                {
-                                        if (EncConfigOpus.pInternalMemory) {
-                                                k_free(EncConfigOpus.pInternalMemory);
-                                        }                                        
-                                        return opus_err;
-                                }
-                                
-                                // status = ENC_Opus_Set_VBR();
-                                // if(status != OPUS_SUCCESS)
-                                // {
-                                // return OPUS_ERROR;
-                                // }
-
-                                // status = ENC_Opus_Set_CBR();
-                                // if(status != OPUS_SUCCESS)
-                                // {
-                                // return OPUS_ERROR;
-                                // }
 		}
 
 		if (sw_codec_cfg.decoder.enabled) {
@@ -650,10 +628,10 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
                 DecConfigOpus.sample_freq = 48000;
                 DecConfigOpus.channels = 2;
 
-                uint32_t enc_size = DEC_Opus_getMemorySize(&DecConfigOpus);
-                LOG_INF("DEC_Opus_getMemorySize: %d", enc_size);
+                uint32_t max_opus_frame_size = DEC_Opus_getMemorySize(&DecConfigOpus);
+                LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
 
-                DecConfigOpus.pInternalMemory = (uint8_t *)k_malloc(enc_size);
+                DecConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
                 if (DecConfigOpus.pInternalMemory == NULL) {
                         LOG_ERR("Memory allocation failed for Opus encoder.");
                         return -ENOMEM;  // or appropriate error code
