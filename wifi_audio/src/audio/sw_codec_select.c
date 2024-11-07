@@ -385,9 +385,8 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 		}
 		case SW_CODEC_STEREO: {
                         pcm_size_stereo = DEC_Opus_Decode((uint8_t *)encoded_data, encoded_size, DecConfigOpus.pInternalMemory);
-                        LOG_INF("Decoded bytes: %d", pcm_size_stereo);
+                        LOG_INF("pcm fram samples size: %d", pcm_size_stereo);
                         //LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
-
 			break;
 		}
 		default:
@@ -396,7 +395,7 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 			return -ENODEV;
 		}
 
-		*decoded_size = pcm_size_stereo;
+		*decoded_size = pcm_size_stereo*2*2;
 		*decoded_data = DecConfigOpus.pInternalMemory;
 #endif /* (CONFIG_SW_CODEC_OPUS) */
 		break;

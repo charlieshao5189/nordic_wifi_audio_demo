@@ -116,11 +116,17 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus,  int *opus_err
     return OPUS_ERROR;
   }
   
-  status = ENC_Opus_Set_VBR();
+  status = ENC_Opus_Set_CBR();
   if (status != OPUS_SUCCESS) 
   {
         return OPUS_ERROR;
   }
+
+//   status = ENC_Opus_Set_VBR();
+//   if (status != OPUS_SUCCESS) 
+//   {
+//         return OPUS_ERROR;
+//   }
 
   status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_LSB_DEPTH(16));
   if (status != OPUS_SUCCESS) 
@@ -128,7 +134,7 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus,  int *opus_err
         return OPUS_ERROR;
   }
 
-  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE));
+  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC));
   if (status != OPUS_SUCCESS) 
   {
         return OPUS_ERROR;
@@ -157,12 +163,6 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus,  int *opus_err
   {
         return OPUS_ERROR;
   }
-
-  status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_10_MS));
-  if (status != OPUS_SUCCESS) 
-  {
-        return OPUS_ERROR;
-  }      
 
   hOpus.ENC_configured = 1;
 
@@ -358,7 +358,8 @@ Opus_Status ENC_Opus_Force_CELTmode(void)
  */
 int ENC_Opus_Encode(uint8_t * buf_in, uint8_t * buf_out) 
 {
-  return opus_encode(hOpus.Encoder, (opus_int16 *) buf_in, hOpus.ENC_frame_size, (unsigned char *) buf_out, (opus_int32) hOpus.max_enc_frame_size);
+  return opus_encode(hOpus.Encoder, (opus_int16 *) buf_in, 480, (unsigned char *) buf_out, (opus_int32) hOpus.max_enc_frame_size);
+//   return opus_encode(hOpus.Encoder, (opus_int16 *) buf_in, hOpus.ENC_frame_size, (unsigned char *) buf_out, (opus_int32) hOpus.max_enc_frame_size);
 }
 
 /**

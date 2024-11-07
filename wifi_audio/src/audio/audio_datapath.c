@@ -950,10 +950,6 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size)
 
         #if (CONFIG_SW_CODEC_OPUS)
                 int ret;
-                // int numDec = DEC_Opus_Decode((uint8_t *)buf, size, DecConfigOpus.pInternalMemory);
-                // LOG_INF("numDec: %d", numDec);
-                // LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
-                // k_sleep(K_SECONDS(1));
 
                 ret = sw_codec_decode(buf, size, 0, &ctrl_blk.decoded_data, &pcm_size);
                 if (ret) {

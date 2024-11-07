@@ -213,25 +213,26 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
  */
 static void audio_datapath_thread(void *dummy1, void *dummy2, void *dummy3)
 {
-	int ret;
-	struct audio_pcm_data_t *iso_received = NULL;
+    int ret;
+    struct audio_pcm_data_t *iso_received = NULL;
+    size_t size_received;
 
-	while (1) {
-		ret = data_fifo_pointer_last_filled_get(&wifi_audio_rx, (void *)&iso_received,
-							(size_t*)iso_received->size, K_FOREVER);
-		ERR_CHK(ret);
+    while (1) {
+        ret = data_fifo_pointer_last_filled_get(&wifi_audio_rx, (void *)&iso_received,
+                                                &size_received, K_FOREVER);
+        ERR_CHK(ret);
 
-		if (IS_ENABLED(CONFIG_AUDIO_SOURCE_USB) && IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
-			// ret = audio_system_decode(iso_received->data, iso_received->data_size,
-			// 			  iso_received->bad_frame);
-			ERR_CHK(ret);
-		} else {
-			audio_datapath_stream_out(iso_received->data, iso_received->size);
-		}
-		data_fifo_block_free(&wifi_audio_rx, (void *)iso_received);
+        if (IS_ENABLED(CONFIG_AUDIO_SOURCE_USB) && IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
+            // ret = audio_system_decode(iso_received->data, iso_received->data_size,
+            //                          iso_received->bad_frame);
+            ERR_CHK(ret);
+        } else {
+            audio_datapath_stream_out(iso_received->data, iso_received->size);
+        }
+        data_fifo_block_free(&wifi_audio_rx, (void *)iso_received);
 
-		STACK_USAGE_PRINT("audio_datapath_thread", &audio_datapath_thread_data);
-	}
+        STACK_USAGE_PRINT("audio_datapath_thread", &audio_datapath_thread_data);
+    }
 }
 
 static int audio_datapath_thread_create(void)
