@@ -20,18 +20,16 @@ config SOCKET_UTIL_THREAD_PRIO
 
 config SOCKET_TARGET_ADDR
 	string "Target socket address socket to connect with"
-        help
-	  Set target socket address socket to connect with.
-
+        default ""
 
 choice SOCKET_TYPE
 	prompt "Choose socket type used for data transmission"
-	default USE_UDP_SOCKET
+	default SOCKET_TYPE_TCP
 
-config USE_UDP_SOCKET
+config SOCKET_TYPE_UDP
 	bool "Use UDP Socket for data tramsission"
 
-config USE_TCP_SOCKET
+config SOCKET_TYPE_TCP
 	bool "Use TCP Socket for data transmission"
 
 endchoice # AUDIO_STREAM_ROL

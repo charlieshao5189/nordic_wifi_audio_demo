@@ -68,6 +68,15 @@ west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_headset --
 west flash --erase -d build_static_opus_headset
 ```
 
+- Use `-DEXTRA_CONF_FILE=overlay-tcp.conf` to switch from UDP socket to TCP socket.
+- Use `-DEXTRA_CONF_FILE=overlay-opus.conf` to turn on Opus codec.
+
+Example to build auido gateway/headset with both Opus and TCP socket enabled:
+```
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_tcp_gateway --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf;overlay-tcp.conf"
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_tcp_headset --sysbuild -- -DSHIELD=nrf7002ek  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf;overlay-opus.conf;overlay-tcp.conf"
+```
+
 # Running Guide
 WiFi CREDENTIALS SHELL example:
 
@@ -88,10 +97,8 @@ The headset device works as socket client, need to know socket server address on
 
 After socket connection is established. Make sure your host pc choose nRF5340 USB Audio(audio gateway) as audio output device, then you can press play/pause on headset device to start/stop audio streaming. The VOL+/- buttons can be used to adjust volume.
 
-# TODO:
-- Use `-DEXTRA_CONF_FILE=overlay-tcp.conf` to switch from UDP socket to TCP socket.
-- Use `-DEXTRA_CONF_FILE=overlay-opus.conf` to turn on Opus codec.
 
 # Tips:
 1. Comment "check_set_compiler_property(APPEND PROPERTY warning_base -Wdouble-promotion)" in zephyr/cmake/compiler/gcc/compiler_flags.cmake can help to disable -Wdouble-promotion warnning in opus library.
 2. Command to debug hard fault: /opt/nordic/ncs/toolchains/f8037e9b83/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-addr2line -e /opt/nordic/ncs/myapps/nordic_wifi_audio_demo/wifi_audio/build_static_headset/wifi_audio/zephyr/zephyr.elf 0x00094eae
+

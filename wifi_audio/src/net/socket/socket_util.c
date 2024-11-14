@@ -39,10 +39,13 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 extern int wifi_station_mode_ready(void);
 extern int wifi_softap_mode_ready(void);
 /**********External Resources END**************/
-
-int udp_socket;
+#if defined(CONFIG_SOCKET_TYPE_TCP)
 int tcp_server_listen_fd;
 int tcp_server_socket;
+int tcp_client_socket;
+#elif defined(CONFIG_SOCKET_TYPE_UDP)
+int udp_socket;
+#endif
 struct sockaddr_in self_addr;
 bool socket_connected=false;
 
@@ -122,20 +125,28 @@ int socket_util_tx_data(uint8_t *data, size_t length)
     while (length > 0) {
         size_t to_send = (length >= chunk_size) ? chunk_size : length;
 
-        #if defined(CONFIG_USE_TCP_SOCKET)
-            bytes_sent = send(tcp_server_socket, data, to_send, 0);
-        #else
+        #if defined(CONFIG_SOCKET_TYPE_TCP)
+                #if defined(CONFIG_SOCKET_ROLE_CLIENT)
+                        bytes_sent = send(tcp_client_socket, data, to_send, 0);
+                        LOG_INF("Sent %d bytes to server\n", bytes_sent);
+                        // LOG_HEXDUMP_INF(data, bytes_sent, "Sent data(HEX):");
+                #elif defined(CONFIG_SOCKET_ROLE_SERVER)
+                        bytes_sent = send(tcp_server_socket, data, to_send, 0);
+                        LOG_INF("Sent %d bytes to server\n", bytes_sent);
+                        // LOG_HEXDUMP_INF(data, bytes_sent, "Sent data(HEX):");
+                #endif //#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+        #elif defined(CONFIG_SOCKET_TYPE_UDP)
             bytes_sent = sendto(udp_socket, data, to_send, 0, (struct sockaddr *)&target_addr, sizeof(target_addr));
         #endif
 
         if (bytes_sent == -1) {
             perror("Sending failed");
             
-            #if defined(CONFIG_USE_TCP_SOCKET)
-                close(tcp_server_socket);
-            #else
-                close(udp_socket);
-            #endif
+        //     #if defined(CONFIG_SOCKET_TYPE_TCP)
+        //         // close(tcp_server_socket);
+        //     #else
+        //         close(udp_socket);
+        //     #endif
 
             FATAL_ERROR();
             return bytes_sent;
@@ -189,58 +200,93 @@ void socket_util_thread(void)
                 LOG_INF("\r\n\r\n Play as socket server, waiting for client connection...\r\n");
         #endif //#if defined(CONFIG_SOCKET_ROLE_CLIENT)
 
-	#if defined(CONFIG_USE_TCP_SOCKET)
-		tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		
-		if (tcp_server_listen_fd < 0)
-		{
-			LOG_ERR("Failed to create socket: %d", -errno);
-			FATAL_ERROR();
-			return;
-		}
-		
-		ret = bind(tcp_server_listen_fd, (struct sockaddr *)&self_addr, sizeof(self_addr));
-		if (ret < 0)
-		{
-			LOG_ERR("bind, error: %d", -errno);
-			FATAL_ERROR();
-			return;
-		}
+	#if defined(CONFIG_SOCKET_TYPE_TCP)
+                #if defined(CONFIG_SOCKET_ROLE_CLIENT)
+                        tcp_client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                        int opt = 1;
+                        setsockopt(tcp_client_socket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+                        ret = connect(tcp_client_socket, (struct sockaddr *)&target_addr, sizeof(target_addr));
+                        if (ret < 0)
+                        {
+                                LOG_ERR("connect, error: %d", -errno);
+                                FATAL_ERROR();
+                                return;
+                        }
+                        LOG_INF("Connected to TCP server\n");
+                        // Handle the client connection
+                        while(1){
+                                socket_receive.len = recv(tcp_client_socket, socket_receive.buf, BUFFER_MAX_SIZE,0);
+                                if(socket_receive.len > 0)
+                                {
+                                        socket_util_trigger_rx_callback_if_set();
+                                }
+                                else if (socket_receive.len == -1) {
+                                        LOG_ERR("Receiving failed");
+                                        close(tcp_client_socket);
+                                } 
+                                else if (socket_receive.len == 0) {
+                                        LOG_INF("TCP Server disconnected.\n");
+                                        // close(tcp_client_socket);
+                                }
+                        }
+                #elif defined(CONFIG_SOCKET_ROLE_SERVER)
+                        tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                        
+                        if (tcp_server_listen_fd < 0)
+                        {
+                                LOG_ERR("Failed to create socket: %d", -errno);
+                                FATAL_ERROR();
+                                return;
+                        }
+                        
+                        ret = bind(tcp_server_listen_fd, (struct sockaddr *)&self_addr, sizeof(self_addr));
+                        if (ret < 0)
+                        {
+                                LOG_ERR("bind, error: %d", -errno);
+                                FATAL_ERROR();
+                                return;
+                        }
 
-		ret = listen(tcp_server_listen_fd, 5);
-		if (ret < 0)
-		{
-			LOG_ERR("listen, error: %d", -errno);
-			FATAL_ERROR();
-			return;
-		}
+                        ret = listen(tcp_server_listen_fd, 5);
+                        if (ret < 0)
+                        {
+                                LOG_ERR("listen, error: %d", -errno);
+                                FATAL_ERROR();
+                                return;
+                        }
+                        tcp_server_socket = accept(tcp_server_listen_fd, (struct sockaddr *)&target_addr, &target_addr_len);
+                        if (tcp_server_socket < 0)
+                        {
+                                LOG_ERR("accept, error: %d", -errno);
+                                FATAL_ERROR();
+                                return;
+                        }
+                        LOG_INF("Accepted connection from client\n");
+                        inet_ntop(target_addr.sin_family, &target_addr.sin_addr, target_addr_str, sizeof(target_addr_str));
+                        LOG_INF("Connect socket client to IP Address %s:%d\n", target_addr_str, ntohs(target_addr.sin_port));
 
-		while(1){
-			tcp_server_socket = accept(tcp_server_listen_fd, (struct sockaddr *)&target_addr, &target_addr_len);
-			if (tcp_server_socket < 0)
-			{
-				LOG_ERR("accept, error: %d", -errno);
-				FATAL_ERROR();
-				return;
-			}
-			LOG_INF("Accepted connection from client\n");
-			inet_ntop(target_addr.sin_family, &target_addr.sin_addr, target_addr_str, sizeof(target_addr_str));
-			LOG_INF("Connect socket client to IP Address %s:%d\n", target_addr_str, ntohs(target_addr.sin_port));
-			// Handle the client connection
-			while((socket_receive.len = recv(tcp_server_socket, socket_receive.buf, BUFFER_MAX_SIZE,0))>0){
-				k_msgq_put(&socket_recv_queue, &socket_receive, K_FOREVER);
-                //socket_util_trigger_rx_callback_if_set();
-			}
-			if (socket_receive.len == -1) {
-				LOG_ERR("Receiving failed");
-			} else if (socket_receive.len == 0) {
-				LOG_INF("Client disconnected.\n");
-			}
-			close(tcp_server_socket);
-		}
-		// Close the server socket (should be unreachable  as the server runs indefinitely)
-		close(tcp_server_listen_fd);
-	#else
+                        while(1){
+                                // Handle the client connection
+                                socket_receive.len = recv(tcp_server_socket, socket_receive.buf, BUFFER_MAX_SIZE,0);
+                                if(socket_receive.len > 0)
+                                {
+                                        socket_util_trigger_rx_callback_if_set();
+                                }
+                                else if (socket_receive.len == -1) {
+                                        LOG_ERR("Receiving failed");
+                                        close(tcp_server_socket);
+                                } 
+                                else if (socket_receive.len == 0) {
+                                        LOG_INF("TCP Server disconnected.\n");
+                                        close(tcp_server_socket);
+                                }
+                        }
+                        close(tcp_server_socket);
+                        close(tcp_server_listen_fd);     
+                
+                #endif //#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+
+	#elif defined(CONFIG_SOCKET_TYPE_UDP)
 		udp_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 		if (udp_socket < 0)
 		{
@@ -255,10 +301,11 @@ void socket_util_thread(void)
 			FATAL_ERROR();
 			return;
 		}
+
 		while((socket_receive.len = recvfrom(udp_socket, socket_receive.buf, BUFFER_MAX_SIZE, 0, (struct sockaddr *)&target_addr, &target_addr_len))>0){
 			if(socket_connected == false){
 				inet_ntop(target_addr.sin_family, &target_addr.sin_addr, target_addr_str, sizeof(target_addr_str));
-				LOG_INF("Connect socket client to IP Address %s:%d\n", target_addr_str, ntohs(target_addr.sin_port));
+				LOG_INF("Connect socket to IP Address %s:%d\n", target_addr_str, ntohs(target_addr.sin_port));
 				socket_connected=true;
 			}
 			socket_util_trigger_rx_callback_if_set();

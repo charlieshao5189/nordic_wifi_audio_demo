@@ -17,7 +17,6 @@ int socket_util_tx_data(uint8_t *data, size_t length);
 uint8_t process_socket_rx_buffer(char *udp_rx_buf, char *command_buf);
 void socket_util_thread(void);
 
-/* Same as COMMAND_MAX_SIZE*/
 #define BUFFER_MAX_SIZE 1508
 
 typedef struct {

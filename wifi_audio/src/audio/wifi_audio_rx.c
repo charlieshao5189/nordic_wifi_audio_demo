@@ -158,6 +158,9 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 #define FULL_FRAME_SIZE (HEADER_SIZE + MAX_AUDIO_FRAME_SIZE + FOOTER_SIZE)
 
 void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
+
+        LOG_INF("Received data size: %d", data_size);
+        // LOG_HEXDUMP_INF(p_data, data_size, "Received data:");
     // Static buffer to store accumulated data
     static uint8_t frame_buffer[FULL_FRAME_SIZE];  // Buffer sized for a full frame with headers and footers
     static size_t current_frame_size = 0;
