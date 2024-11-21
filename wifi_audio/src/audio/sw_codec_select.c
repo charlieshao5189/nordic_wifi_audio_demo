@@ -567,9 +567,9 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 				return -EALREADY;
 			}
 
-			LOG_INF("Encode: %dHz %dbits %dus %dbps %d channel(s)",
+			LOG_INF("Encode: %dHz %dbits %dms %dbps %d channel(s)",
 				sw_codec_cfg.encoder.sample_rate_hz, CONFIG_AUDIO_BIT_DEPTH_BITS,
-				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.encoder.bitrate,
+				CONFIG_AUDIO_FRAME_DURATION_US/1000, sw_codec_cfg.encoder.bitrate,
 				sw_codec_cfg.encoder.num_ch);
 
                                 Opus_Status status;
@@ -578,11 +578,11 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
                                         return OPUS_SUCCESS;
                                 }
                                 EncConfigOpus.application = (uint16_t) OPUS_APPLICATION_AUDIO;
-                                EncConfigOpus.bitrate = 16000;
-                                EncConfigOpus.channels = 2;
+                                EncConfigOpus.bitrate = sw_codec_cfg.encoder.bitrate;
+                                EncConfigOpus.channels = sw_codec_cfg.encoder.num_ch;
                                 EncConfigOpus.complexity = 5;
-                                EncConfigOpus.ms_frame = 10;
-                                EncConfigOpus.sample_freq = 48000;
+                                EncConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US/1000;
+                                EncConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
 
                                 uint32_t max_opus_frame_size = ENC_Opus_getMemorySize(&EncConfigOpus);
                                 LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
@@ -623,9 +623,9 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
                         return OPUS_SUCCESS;
                 }
                 
-                DecConfigOpus.ms_frame = 10;
-                DecConfigOpus.sample_freq = 48000;
-                DecConfigOpus.channels = 2;
+                DecConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US/1000;
+                DecConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
+                DecConfigOpus.channels = sw_codec_cfg.encoder.num_ch;
 
                 uint32_t max_opus_frame_size = DEC_Opus_getMemorySize(&DecConfigOpus);
                 LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);

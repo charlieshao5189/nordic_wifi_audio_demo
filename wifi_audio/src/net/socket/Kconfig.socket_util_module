@@ -24,7 +24,7 @@ config SOCKET_TARGET_ADDR
 
 choice SOCKET_TYPE
 	prompt "Choose socket type used for data transmission"
-	default SOCKET_TYPE_TCP
+	default SOCKET_TYPE_UDP
 
 config SOCKET_TYPE_UDP
 	bool "Use UDP Socket for data tramsission"
