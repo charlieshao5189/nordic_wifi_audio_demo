@@ -11,7 +11,7 @@ HW:
 - Earphones/Headphones with 3.5mm jack
 
 SW: 
-- NCS v2.7.0
+- NCS v2.8.0
 - Opus v1.5.2
 
 # Repository Setup

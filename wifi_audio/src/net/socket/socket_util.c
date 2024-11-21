@@ -174,7 +174,7 @@ void socket_util_thread(void)
 		LOG_ERR("Failed to initialize the LED library");
 	}
 
-        #if defined(CONFIG_NRF700X_AP_MODE)
+        #if defined(CONFIG_NRF70_AP_MODE)
                 ret = wifi_softap_mode_ready();
         #else
                 ret = wifi_station_mode_ready();

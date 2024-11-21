@@ -8,11 +8,11 @@
 # # Wi-Fi
 config WIFI
  	default y
-config WIFI_NRF700X
+config WIFI_NRF70
  	default y
 
 # # WPA supplicant
-config WPA_SUPP
+config WIFI_NM_WPA_SUPPLICANT
  	default y
 
 # Station Mode
