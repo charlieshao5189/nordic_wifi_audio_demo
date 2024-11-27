@@ -56,3 +56,22 @@ config PRINT_STACK_USAGE_MS
 endmenu # Log levels
 
 source "Kconfig.zephyr"
+
+
+#----------------------------------------------------------------------------#
+
+menu "SoftAP Wi-Fi provision sample"
+
+config SOFTAP_WIFI_PROVISION_SAMPLE_PSM_DISABLED_SECONDS
+	int "Wi-Fi PSM disabled seconds"
+	default 120
+	help
+	  Time in seconds that Wi-Fi power saving mode is disabled after completed provisioning.
+	  Disabling Power Save Mode is needed to make the device discoverable reliably via
+	  mDNS post provisioning.
+	  Service Discovery has proven to be unstable in PSM.
+
+module = SOFTAP_WIFI_PROVISION_SAMPLE
+module-str = SoftAP Wi-Fi provision sample
+
+endmenu
