@@ -5,3 +5,8 @@
 #
 
 #----------------------------------------------------------------------------#
+config MDNS_QUERY_NAME
+		string "mDNS query name"
+		default "zephyr"
+		help
+			Set the mDNS query name

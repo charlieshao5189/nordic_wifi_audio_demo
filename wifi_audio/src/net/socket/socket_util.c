@@ -20,6 +20,9 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 #include <zephyr/shell/shell.h>
 #include "socket_util.h"
 
+
+#include <zephyr/net/dns_resolve.h>
+
 #define FATAL_ERROR()                              \
 	LOG_ERR("Fatal error! Rebooting the device."); \
 	LOG_PANIC();                                   \
@@ -158,6 +161,51 @@ int socket_util_tx_data(uint8_t *data, size_t length)
     return bytes_sent;
 }
 
+#ifdef CONFIG_MDNS_RESOLVER
+static void do_mdns_query(void){
+	struct addrinfo *result;
+	struct addrinfo *addr;
+	struct addrinfo hints = {
+		.ai_socktype = SOCK_STREAM,
+		.ai_family = AF_INET
+	};
+
+	char addr_str[NET_IPV6_ADDR_LEN];
+
+	int err;
+	for(int i = 0; i < 5; i++){
+		err = getaddrinfo(CONFIG_MDNS_QUERY_NAME, NULL, &hints, &result);
+		// if (err) {
+		// 	LOG_ERR("getaddrinfo() failed, error %d", err);
+		// 	return;
+		// }
+		if(!err){
+			LOG_INF("Got address at attempt %d", i);
+			break;
+		}
+		LOG_INF("Failed to get address at attempt %d, error %d", i, err);
+	}
+	if(err){
+		LOG_ERR("getaddrinfo() failed, error %d", err);
+		return;
+	}
+
+	for (addr = result; addr; addr = addr->ai_next) {
+		if (addr->ai_family == AF_INET) {
+			struct sockaddr_in *addr4 = (struct sockaddr_in *)addr->ai_addr;
+
+			inet_ntop(AF_INET, &addr4->sin_addr, addr_str, sizeof(addr_str));
+			LOG_INF("IPv4 address: %s", addr_str);
+		} else if (addr->ai_family == AF_INET6) {
+			struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr->ai_addr;
+
+			inet_ntop(AF_INET6, &addr6->sin6_addr, addr_str, sizeof(addr_str));
+			LOG_INF("IPv6 address: %s", addr_str);
+		}
+	}
+}
+#endif /* CONFIG_MDNS_RESOLVER */
+
 /* Thread to setup WiFi, Sockets step by step */
 void socket_util_thread(void)
 {
@@ -195,6 +243,11 @@ void socket_util_thread(void)
 
         #if defined(CONFIG_SOCKET_ROLE_CLIENT)
                 LOG_INF("\r\n\r\n Play as socket client, set target server address with shell command:socket set_target_addr <IP>:<Port>)\r\n");
+
+                #ifdef CONFIG_MDNS_RESOLVER
+                        do_mdns_query();
+                #endif /* CONFIG_MDNS_RESOLVER */
+
                 k_sem_take(&target_addr_set_sem, K_FOREVER);
         #elif defined(CONFIG_SOCKET_ROLE_SERVER)
                 LOG_INF("\r\n\r\n Play as socket server, waiting for client connection...\r\n");
