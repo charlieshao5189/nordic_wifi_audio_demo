@@ -31,8 +31,8 @@ The sample has following building options.
 Gateway:
 
 ```
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_gateway --sysbuild -- -DSHIELD=nrf7002ek
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_gateway --sysbuild -- -DSHIELD=nrf7002ek
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_gateway --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-audio-gateway.conf
+west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_gateway --sysbuild -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-audio-gateway.conf
 west flash --erase -d build_gateway
 ```
 
