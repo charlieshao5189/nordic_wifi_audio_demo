@@ -625,8 +625,8 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 			}
 
 			DecConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US / 1000;
-			DecConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
-			DecConfigOpus.channels = sw_codec_cfg.encoder.num_ch;
+			DecConfigOpus.sample_freq = sw_codec_cfg.decoder.sample_rate_hz;
+			DecConfigOpus.channels = sw_codec_cfg.decoder.num_ch;
 
 			uint32_t max_opus_frame_size = DEC_Opus_getMemorySize(&DecConfigOpus);
 			LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);

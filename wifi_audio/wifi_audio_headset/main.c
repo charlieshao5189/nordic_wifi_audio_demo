@@ -58,33 +58,48 @@ K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STA
 
 static enum stream_state strm_state = STATE_PAUSED;
 
-// #define HEAP_LISTENER
-#ifdef HEAP_LISTENER
+#ifdef CONFIG_SYS_HEAP_LISTENER
 extern struct sys_heap _system_heap;
-static size_t total_allocated;
+struct sys_memory_stats system_heap_stats;
+uint32_t system_heap_free = 0;
+uint32_t system_heap_used = 0;
+uint32_t system_heap_max_used = 0;
 
-void on_heap_alloc(uintptr_t heap_id, void *mem, size_t bytes)
+void on_system_heap_alloc(uintptr_t heap_id, void *mem, size_t bytes)
 {
-	total_allocated += bytes;
-	LOG_INF(" AL Memory allocated %u bytes. Total allocated %u bytes", (unsigned int)bytes,
-		(unsigned int)total_allocated);
+	if (heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
+		sys_heap_runtime_stats_get((struct sys_heap *)&_system_heap.heap,
+					   &system_heap_stats);
+		system_heap_used = (uint32_t)system_heap_stats.allocated_bytes;
+		system_heap_max_used = (uint32_t)system_heap_stats.max_allocated_bytes;
+		system_heap_free = (uint32_t)system_heap_stats.free_bytes;
+		LOG_INF("system_heap ALLOC %zu. Heap state: allocated %zu, free %zu, max allocated "
+			"%zu, heap size %u.\n",
+			bytes, system_heap_free, system_heap_used, system_heap_max_used,
+			K_HEAP_MEM_POOL_SIZE);
+	}
 }
 
-void on_heap_free(uintptr_t heap_id, void *mem, size_t bytes)
+void on_system_heap_free(uintptr_t heap_id, void *mem, size_t bytes)
 {
-	total_allocated -= bytes;
-	LOG_INF(" FR Memory freed %u bytes. Total allocated %u bytes", (unsigned int)bytes,
-		(unsigned int)total_allocated);
+	if (heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
+		sys_heap_runtime_stats_get((struct sys_heap *)&_system_heap.heap,
+					   &system_heap_stats);
+		system_heap_used = (uint32_t)system_heap_stats.allocated_bytes;
+		system_heap_max_used = (uint32_t)system_heap_stats.max_allocated_bytes;
+		system_heap_free = (uint32_t)system_heap_stats.free_bytes;
+		LOG_INF("system_heap ALLOC %zu. Heap state: allocated %zu, free %zu, max allocated "
+			"%zu, heap size %u.\n",
+			bytes, system_heap_free, system_heap_used, system_heap_max_used,
+			K_HEAP_MEM_POOL_SIZE);
+	}
 }
 
-#if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
+HEAP_LISTENER_ALLOC_DEFINE(system_heap_listener_alloc, HEAP_ID_FROM_POINTER(&_system_heap),
+			   on_system_heap_alloc);
+HEAP_LISTENER_FREE_DEFINE(system_heap_listener_free, HEAP_ID_FROM_POINTER(&_system_heap),
+			  on_system_heap_free);
 
-HEAP_LISTENER_ALLOC_DEFINE(my_heap_listener_alloc, HEAP_ID_FROM_POINTER(&_system_heap),
-			   on_heap_alloc);
-
-HEAP_LISTENER_FREE_DEFINE(my_heap_listener_free, HEAP_ID_FROM_POINTER(&_system_heap), on_heap_free);
-
-#endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
 #endif /* #ifdef HEAP_LISTENER */
 
 /* Function for handling all stream state changes */
@@ -380,13 +395,10 @@ int main(void)
 	int ret;
 	LOG_INF("WiFi Audio Transceiver Start!");
 
-#ifdef HEAP_LISTENER
-#if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
+#ifdef CONFIG_SYS_HEAP_LISTENER
 
-	heap_listener_register(&my_heap_listener_alloc);
-	heap_listener_register(&my_heap_listener_free);
-
-#endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
+	heap_listener_register(&system_heap_listener_alloc);
+	heap_listener_register(&system_heap_listener_free);
 
 #endif /* #ifdef HEAP_LISTENER */
 

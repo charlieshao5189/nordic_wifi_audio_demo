@@ -224,4 +224,3 @@ After socket connection is established. Make sure your host pc choose nRF5340 US
 2. Command to debug hard fault:
         - /opt/nordic/ncs/toolchains/f8037e9b83/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-addr2line -e /opt/nordic/ncs/myapps/nordic_wifi_audio_demo/wifi_audio/build_static_headset/wifi_audio/zephyr/zephyr.elf 0x00094eae
         - C:\nordic\toolchains\2d382dcd92\opt\zephyr-sdk\arm-zephyr-eabi\bin\arm-zephyr-eabi-addr2line.exe -e C:\nordic\myApps\nordic_wifi_audio_demo\wifi_audio\build_static_gateway\wifi_audio\zephyr\zephyr.elf 0x0002fdfb
-
