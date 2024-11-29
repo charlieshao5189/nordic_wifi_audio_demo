@@ -20,11 +20,11 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sd_card_playback, CONFIG_MODULE_SD_CARD_PLAYBACK_LOG_LEVEL);
 
-#define MAX_PATH_LEN	    (CONFIG_FS_FATFS_MAX_LFN)
+#define MAX_PATH_LEN        (CONFIG_FS_FATFS_MAX_LFN)
 #define LIST_FILES_BUF_SIZE 512
 #define FRAME_DURATION_MS   (CONFIG_AUDIO_FRAME_DURATION_US / 1000)
 
-#define WAV_FORMAT_PCM	    1
+#define WAV_FORMAT_PCM      1
 #define WAV_SAMPLE_RATE_48K 48000
 
 /* WAV header */
@@ -37,7 +37,7 @@ struct wav_header {
 	/* Format Header */
 	char fmt_header[4];
 	uint32_t wav_chunk_size; /* Should be 16 for PCM */
-	short audio_format;	 /* Should be 1 for PCM */
+	short audio_format;      /* Should be 1 for PCM */
 	short num_channels;
 	uint32_t sample_rate;
 	uint32_t byte_rate;
@@ -51,13 +51,13 @@ struct wav_header {
 
 /* LC3 header */
 struct lc3_header {
-	uint16_t file_id;	 /* Constant value, 0xCC1C */
-	uint16_t hdr_size;	 /* Header size, 0x0012 */
-	uint16_t sample_rate;	 /* Sample frequency / 100 */
-	uint16_t bit_rate;	 /* Bit rate / 100 (total for all channels) */
-	uint16_t channels;	 /* Number of channels */
+	uint16_t file_id;        /* Constant value, 0xCC1C */
+	uint16_t hdr_size;       /* Header size, 0x0012 */
+	uint16_t sample_rate;    /* Sample frequency / 100 */
+	uint16_t bit_rate;       /* Bit rate / 100 (total for all channels) */
+	uint16_t channels;       /* Number of channels */
 	uint16_t frame_duration; /* Frame duration in ms * 100 */
-	uint16_t rfu;		 /* Reserved for future use */
+	uint16_t rfu;            /* Reserved for future use */
 	uint16_t signal_len_lsb; /* Number of samples in signal, 16 LSB */
 	uint16_t signal_len_msb; /* Number of samples in signal, 16 MSB (>> 16) */
 } __packed;

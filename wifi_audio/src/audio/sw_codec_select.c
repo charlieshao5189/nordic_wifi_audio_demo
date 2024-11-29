@@ -15,8 +15,8 @@
 #include "sw_codec_lc3.h"
 #elif (CONFIG_SW_CODEC_OPUS)
 #include "opus_interface.h"
-ENC_Opus_ConfigTypeDef EncConfigOpus;   /*!< opus encode configuration.*/
-DEC_Opus_ConfigTypeDef DecConfigOpus;   /*!< opus encode configuration.*/
+ENC_Opus_ConfigTypeDef EncConfigOpus; /*!< opus encode configuration.*/
+DEC_Opus_ConfigTypeDef DecConfigOpus; /*!< opus encode configuration.*/
 #endif /* (CONFIG_SW_CODEC_LC3) */
 
 #include <zephyr/logging/log.h>
@@ -41,8 +41,8 @@ static struct sw_codec_config m_config;
 //  * @param[in]	input_data		Data coming in. Buffer is assumed to be of size
 //  *					PCM_NUM_BYTES_MONO.
 //  * @param[in]	input_data_size		Size of input data.
-//  * @param[in]	conversion_buffer	Buffer to perform sample rate conversion. Must be of size
-//  *					PCM_NUM_BYTES_MONO.
+//  * @param[in]	conversion_buffer	Buffer to perform sample rate conversion. Must be of
+//  size *					PCM_NUM_BYTES_MONO.
 //  * @param[out]	data_ptr		Pointer to the data to be used from this point on.
 //  *					Will point to either @p input_data or @p conversion_buffer.
 //  * @param[out]	output_size		Number of bytes out.
@@ -87,133 +87,139 @@ bool sw_codec_is_initialized(void)
 	return m_config.initialized;
 }
 
-int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, size_t *encoded_size) {
+int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, size_t *encoded_size)
+{
 
-    if (!m_config.encoder.enabled) {
-        LOG_ERR("Encoder has not been initialized");
-        return -ENXIO; // No such device or address
-    }
+	if (!m_config.encoder.enabled) {
+		LOG_ERR("Encoder has not been initialized");
+		return -ENXIO; // No such device or address
+	}
 
-    switch (m_config.sw_codec) {
-        case SW_CODEC_LC3: {
+	switch (m_config.sw_codec) {
+	case SW_CODEC_LC3: {
 #if (CONFIG_SW_CODEC_LC3)
-        int ret;
-        /* Temp storage for split stereo PCM signal */
-        char pcm_data_mono_system_sample_rate[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
-        static uint8_t m_encoded_data[ENC_MAX_FRAME_SIZE * AUDIO_CH_NUM];
-        char pcm_data_mono_converted_buf[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
-        size_t pcm_block_size_mono_system_sample_rate;
-        size_t pcm_block_size_mono;
-        uint16_t encoded_bytes_written;
-        char *pcm_data_mono_ptrs[m_config.encoder.channel_mode];
+		int ret;
+		/* Temp storage for split stereo PCM signal */
+		char pcm_data_mono_system_sample_rate[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
+		static uint8_t m_encoded_data[ENC_MAX_FRAME_SIZE * AUDIO_CH_NUM];
+		char pcm_data_mono_converted_buf[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
+		size_t pcm_block_size_mono_system_sample_rate;
+		size_t pcm_block_size_mono;
+		uint16_t encoded_bytes_written;
+		char *pcm_data_mono_ptrs[m_config.encoder.channel_mode];
 
-        // Split stereo PCM stream into mono channels
-        ret = pscm_two_channel_split(pcm_data, pcm_size, CONFIG_AUDIO_BIT_DEPTH_BITS,
-                                        pcm_data_mono_system_sample_rate[AUDIO_CH_L],
-                                        pcm_data_mono_system_sample_rate[AUDIO_CH_R],
-                                        &pcm_block_size_mono_system_sample_rate);
-        if (ret) {
-        return ret;
-        }
+		// Split stereo PCM stream into mono channels
+		ret = pscm_two_channel_split(pcm_data, pcm_size, CONFIG_AUDIO_BIT_DEPTH_BITS,
+					     pcm_data_mono_system_sample_rate[AUDIO_CH_L],
+					     pcm_data_mono_system_sample_rate[AUDIO_CH_R],
+					     &pcm_block_size_mono_system_sample_rate);
+		if (ret) {
+			return ret;
+		}
 
-        // Convert sample rates for each channel
-        for (int i = 0; i < m_config.encoder.channel_mode; ++i) {
-        ret = sw_codec_sample_rate_convert(
-                &encoder_converters[i], CONFIG_AUDIO_SAMPLE_RATE_HZ,
-                m_config.encoder.sample_rate_hz,
-                pcm_data_mono_system_sample_rate[i],
-                pcm_block_size_mono_system_sample_rate,
-                pcm_data_mono_converted_buf[i], &pcm_data_mono_ptrs[i],
-                &pcm_block_size_mono);
-        if (ret) {
-                LOG_ERR("Sample rate conversion failed for channel %d: %d", i, ret);
-                return ret;
-        }
-        }
+		// Convert sample rates for each channel
+		for (int i = 0; i < m_config.encoder.channel_mode; ++i) {
+			ret = sw_codec_sample_rate_convert(
+				&encoder_converters[i], CONFIG_AUDIO_SAMPLE_RATE_HZ,
+				m_config.encoder.sample_rate_hz,
+				pcm_data_mono_system_sample_rate[i],
+				pcm_block_size_mono_system_sample_rate,
+				pcm_data_mono_converted_buf[i], &pcm_data_mono_ptrs[i],
+				&pcm_block_size_mono);
+			if (ret) {
+				LOG_ERR("Sample rate conversion failed for channel %d: %d", i, ret);
+				return ret;
+			}
+		}
 
-        // Encode based on the channel mode
-        switch (m_config.encoder.channel_mode) {
-        case SW_CODEC_MONO: {
-                ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[AUDIO_CH_L],
-                                        pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
-                                        0, sizeof(m_encoded_data), m_encoded_data,
-                                        &encoded_bytes_written);
-                if (ret) {
-                return ret;
-                }
-                break;
-        }
-        case SW_CODEC_STEREO: {
-                // Encode left channel
-                ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[AUDIO_CH_L],
-                                        pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
-                                        AUDIO_CH_L, sizeof(m_encoded_data),
-                                        m_encoded_data, &encoded_bytes_written);
-                if (ret) {
-                return ret;
-                }
+		// Encode based on the channel mode
+		switch (m_config.encoder.channel_mode) {
+		case SW_CODEC_MONO: {
+			ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[AUDIO_CH_L],
+						   pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
+						   0, sizeof(m_encoded_data), m_encoded_data,
+						   &encoded_bytes_written);
+			if (ret) {
+				return ret;
+			}
+			break;
+		}
+		case SW_CODEC_STEREO: {
+			// Encode left channel
+			ret = sw_codec_lc3_enc_run(pcm_data_mono_ptrs[AUDIO_CH_L],
+						   pcm_block_size_mono, LC3_USE_BITRATE_FROM_INIT,
+						   AUDIO_CH_L, sizeof(m_encoded_data),
+						   m_encoded_data, &encoded_bytes_written);
+			if (ret) {
+				return ret;
+			}
 
-                // Encode right channel
-                ret = sw_codec_lc3_enc_run(
-                pcm_data_mono_ptrs[AUDIO_CH_R], pcm_block_size_mono,
-                LC3_USE_BITRATE_FROM_INIT, AUDIO_CH_R,
-                sizeof(m_encoded_data) - encoded_bytes_written,
-                m_encoded_data + encoded_bytes_written, &encoded_bytes_written);
-                if (ret) {
-                return ret;
-                }
-                encoded_bytes_written += encoded_bytes_written; // Accumulate total bytes written
-                break;
-                }
-                default:
-                    LOG_ERR("Unsupported channel mode for encoder: %d", m_config.encoder.channel_mode);
-                    return -ENODEV;
-            }
+			// Encode right channel
+			ret = sw_codec_lc3_enc_run(
+				pcm_data_mono_ptrs[AUDIO_CH_R], pcm_block_size_mono,
+				LC3_USE_BITRATE_FROM_INIT, AUDIO_CH_R,
+				sizeof(m_encoded_data) - encoded_bytes_written,
+				m_encoded_data + encoded_bytes_written, &encoded_bytes_written);
+			if (ret) {
+				return ret;
+			}
+			encoded_bytes_written +=
+				encoded_bytes_written; // Accumulate total bytes written
+			break;
+		}
+		default:
+			LOG_ERR("Unsupported channel mode for encoder: %d",
+				m_config.encoder.channel_mode);
+			return -ENODEV;
+		}
 
-            *encoded_data = m_encoded_data;
-            *encoded_size = encoded_bytes_written;
+		*encoded_data = m_encoded_data;
+		*encoded_size = encoded_bytes_written;
 
 #endif /* (CONFIG_SW_CODEC_LC3) */
-            break;
-        }
-        case SW_CODEC_OPUS: {
+		break;
+	}
+	case SW_CODEC_OPUS: {
 #if (CONFIG_SW_CODEC_OPUS)
-            uint16_t encoded_bytes_written=0;
+		uint16_t encoded_bytes_written = 0;
 
-            switch (m_config.encoder.channel_mode) {
-                case SW_CODEC_MONO: {
-                    // Handle OPUS mono encoding here if needed
-                    // Consider implementing similar to LC3 for mono encoding
-                    break;
-                }
-                case SW_CODEC_STEREO: {
-                    encoded_bytes_written = ENC_Opus_Encode((uint8_t *)pcm_data, EncConfigOpus.pInternalMemory);
-                    if (encoded_bytes_written < 0) {
-                        LOG_ERR("Opus encoding failed: %s", opus_strerror(encoded_bytes_written));
-                        return encoded_bytes_written;
-                    } else {
-                        LOG_INF("Opus encoded output data size: %zu bytes", encoded_bytes_written);
-                    }
-                    break;
-                }
-                default:
-                    LOG_ERR("Unsupported channel mode for encoder: %d", m_config.encoder.channel_mode);
-                    return -ENODEV;
-            }
+		switch (m_config.encoder.channel_mode) {
+		case SW_CODEC_MONO: {
+			// Handle OPUS mono encoding here if needed
+			// Consider implementing similar to LC3 for mono encoding
+			break;
+		}
+		case SW_CODEC_STEREO: {
+			encoded_bytes_written =
+				ENC_Opus_Encode((uint8_t *)pcm_data, EncConfigOpus.pInternalMemory);
+			if (encoded_bytes_written < 0) {
+				LOG_ERR("Opus encoding failed: %s",
+					opus_strerror(encoded_bytes_written));
+				return encoded_bytes_written;
+			} else {
+				LOG_INF("Opus encoded output data size: %zu bytes",
+					encoded_bytes_written);
+			}
+			break;
+		}
+		default:
+			LOG_ERR("Unsupported channel mode for encoder: %d",
+				m_config.encoder.channel_mode);
+			return -ENODEV;
+		}
 
-            *encoded_data = EncConfigOpus.pInternalMemory;
-            *encoded_size = encoded_bytes_written;
+		*encoded_data = EncConfigOpus.pInternalMemory;
+		*encoded_size = encoded_bytes_written;
 
 #endif /* (CONFIG_SW_CODEC_OPUS) */
-            break;
-        }
-        default:
-            LOG_INF("No sw codec set for encoding, send uncompressed PCM data directly.");
-    }
+		break;
+	}
+	default:
+		LOG_INF("No sw codec set for encoding, send uncompressed PCM data directly.");
+	}
 
-    return 0; // Success
+	return 0; // Success
 }
-
 
 int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool bad_frame,
 		    void **decoded_data, size_t *decoded_size)
@@ -222,21 +228,18 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 		LOG_ERR("Decoder has not been initialized");
 		return -ENXIO;
 	}
-        
-       
-	
-        switch (m_config.sw_codec) {
+
+	switch (m_config.sw_codec) {
 	case SW_CODEC_LC3: {
 #if (CONFIG_SW_CODEC_LC3)
-                int ret;
-                size_t pcm_size_stereo = 0;
-                static char pcm_data_stereo[PCM_NUM_BYTES_STEREO];
-                char decoded_data_mono[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
-                char decoded_data_mono_system_sample_rate[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
+		int ret;
+		size_t pcm_size_stereo = 0;
+		static char pcm_data_stereo[PCM_NUM_BYTES_STEREO];
+		char decoded_data_mono[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
+		char decoded_data_mono_system_sample_rate[AUDIO_CH_NUM][PCM_NUM_BYTES_MONO] = {0};
 
-        
-                size_t pcm_size_mono = 0;
-                size_t decoded_data_size = 0;
+		size_t pcm_size_mono = 0;
+		size_t decoded_data_size = 0;
 
 		char *pcm_in_data_ptrs[m_config.decoder.channel_mode];
 
@@ -343,7 +346,7 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 	}
 	case SW_CODEC_OPUS: {
 #if (CONFIG_SW_CODEC_OPUS)
-                size_t pcm_size_stereo = 0;
+		size_t pcm_size_stereo = 0;
 		switch (m_config.decoder.channel_mode) {
 		case SW_CODEC_MONO: {
 			// if (bad_frame && IS_ENABLED(CONFIG_SW_CODEC_OVERRIDE_PLC)) {
@@ -384,9 +387,10 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 			break;
 		}
 		case SW_CODEC_STEREO: {
-                        pcm_size_stereo = DEC_Opus_Decode((uint8_t *)encoded_data, encoded_size, DecConfigOpus.pInternalMemory);
-                        LOG_INF("pcm fram samples size: %d", pcm_size_stereo);
-                        //LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
+			pcm_size_stereo = DEC_Opus_Decode((uint8_t *)encoded_data, encoded_size,
+							  DecConfigOpus.pInternalMemory);
+			LOG_INF("pcm fram samples size: %d", pcm_size_stereo);
+			// LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
 			break;
 		}
 		default:
@@ -395,7 +399,7 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 			return -ENODEV;
 		}
 
-		*decoded_size = pcm_size_stereo*2*2;
+		*decoded_size = pcm_size_stereo * 2 * 2;
 		*decoded_data = DecConfigOpus.pInternalMemory;
 #endif /* (CONFIG_SW_CODEC_OPUS) */
 		break;
@@ -415,7 +419,7 @@ int sw_codec_uninit(struct sw_codec_config sw_codec_cfg)
 	switch (m_config.sw_codec) {
 	case SW_CODEC_LC3:
 #if (CONFIG_SW_CODEC_LC3)
-                int ret;
+		int ret;
 		if (sw_codec_cfg.encoder.enabled) {
 			if (!m_config.encoder.enabled) {
 				LOG_ERR("Trying to uninit encoder, it has not been "
@@ -452,10 +456,10 @@ int sw_codec_uninit(struct sw_codec_config sw_codec_cfg)
 					"initialized");
 				return -EALREADY;
 			}
-			 
-                        k_free(EncConfigOpus.pInternalMemory);
-                        ENC_Opus_Deinit();
-		
+
+			k_free(EncConfigOpus.pInternalMemory);
+			ENC_Opus_Deinit();
+
 			m_config.encoder.enabled = false;
 		}
 
@@ -465,10 +469,10 @@ int sw_codec_uninit(struct sw_codec_config sw_codec_cfg)
 					"initialized");
 				return -EALREADY;
 			}
-                        
-                        k_free(DecConfigOpus.pInternalMemory);
+
+			k_free(DecConfigOpus.pInternalMemory);
 			DEC_Opus_Deinit();
-		
+
 			m_config.decoder.enabled = false;
 		}
 #endif /* (CONFIG_SW_CODEC_OPUS) */
@@ -484,15 +488,15 @@ int sw_codec_uninit(struct sw_codec_config sw_codec_cfg)
 
 int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 {
-        if (m_config.initialized) {
-                LOG_ERR("Codec is already initialized.");
-                return -EALREADY;
-        }
+	if (m_config.initialized) {
+		LOG_ERR("Codec is already initialized.");
+		return -EALREADY;
+	}
 
 	switch (sw_codec_cfg.sw_codec) {
 	case SW_CODEC_LC3: {
 #if (CONFIG_SW_CODEC_LC3)
-                int ret;
+		int ret;
 		if (m_config.sw_codec != SW_CODEC_LC3) {
 			/* Check if LC3 is already initialized */
 			ret = sw_codec_lc3_init(NULL, NULL, CONFIG_AUDIO_FRAME_DURATION_US);
@@ -569,47 +573,45 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 
 			LOG_INF("Encode: %dHz %dbits %dms %dbps %d channel(s)",
 				sw_codec_cfg.encoder.sample_rate_hz, CONFIG_AUDIO_BIT_DEPTH_BITS,
-				CONFIG_AUDIO_FRAME_DURATION_US/1000, sw_codec_cfg.encoder.bitrate,
+				CONFIG_AUDIO_FRAME_DURATION_US / 1000, sw_codec_cfg.encoder.bitrate,
 				sw_codec_cfg.encoder.num_ch);
 
-                                Opus_Status status;
-                                if(ENC_Opus_IsConfigured())
-                                {
-                                        return OPUS_SUCCESS;
-                                }
-                                EncConfigOpus.application = (uint16_t) OPUS_APPLICATION_AUDIO;
-                                EncConfigOpus.bitrate = sw_codec_cfg.encoder.bitrate;
-                                EncConfigOpus.channels = sw_codec_cfg.encoder.num_ch;
-                                EncConfigOpus.complexity = 5;
-                                EncConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US/1000;
-                                EncConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
+			Opus_Status status;
+			if (ENC_Opus_IsConfigured()) {
+				return OPUS_SUCCESS;
+			}
+			EncConfigOpus.application = (uint16_t)OPUS_APPLICATION_AUDIO;
+			EncConfigOpus.bitrate = sw_codec_cfg.encoder.bitrate;
+			EncConfigOpus.channels = sw_codec_cfg.encoder.num_ch;
+			EncConfigOpus.complexity = 5;
+			EncConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US / 1000;
+			EncConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
 
-                                uint32_t max_opus_frame_size = ENC_Opus_getMemorySize(&EncConfigOpus);
-                                LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
-                                EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
-                                if (EncConfigOpus.pInternalMemory == NULL) {
-                                LOG_ERR("Memory allocation failed for Opus encoder.");
-                                return -ENOMEM;  // or appropriate error code
-                                }
+			uint32_t max_opus_frame_size = ENC_Opus_getMemorySize(&EncConfigOpus);
+			LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
+			EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
+			if (EncConfigOpus.pInternalMemory == NULL) {
+				LOG_ERR("Memory allocation failed for Opus encoder.");
+				return -ENOMEM; // or appropriate error code
+			}
 
-                                int opus_err;
-                                status = ENC_Opus_Init(&EncConfigOpus, &opus_err);
+			int opus_err;
+			status = ENC_Opus_Init(&EncConfigOpus, &opus_err);
 
-                                if(status != OPUS_SUCCESS)
-                                {
-                                        if (EncConfigOpus.pInternalMemory) {
-                                                k_free(EncConfigOpus.pInternalMemory);
-                                        }
-                                        return opus_err;
-                                }
+			if (status != OPUS_SUCCESS) {
+				if (EncConfigOpus.pInternalMemory) {
+					k_free(EncConfigOpus.pInternalMemory);
+				}
+				return opus_err;
+			}
 		}
 
 		if (sw_codec_cfg.decoder.enabled) {
 			if (m_config.decoder.enabled) {
 				LOG_WRN("The OPUS decoder is already initialized");
-                                if (EncConfigOpus.pInternalMemory) {
-                                        k_free(EncConfigOpus.pInternalMemory);
-                                }                                
+				if (EncConfigOpus.pInternalMemory) {
+					k_free(EncConfigOpus.pInternalMemory);
+				}
 				return -EALREADY;
 			}
 
@@ -617,35 +619,33 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 				sw_codec_cfg.decoder.sample_rate_hz, CONFIG_AUDIO_BIT_DEPTH_BITS,
 				CONFIG_AUDIO_FRAME_DURATION_US, sw_codec_cfg.decoder.num_ch);
 
-                Opus_Status status;
-                if(DEC_Opus_IsConfigured())
-                {
-                        return OPUS_SUCCESS;
-                }
-                
-                DecConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US/1000;
-                DecConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
-                DecConfigOpus.channels = sw_codec_cfg.encoder.num_ch;
+			Opus_Status status;
+			if (DEC_Opus_IsConfigured()) {
+				return OPUS_SUCCESS;
+			}
 
-                uint32_t max_opus_frame_size = DEC_Opus_getMemorySize(&DecConfigOpus);
-                LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
+			DecConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US / 1000;
+			DecConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
+			DecConfigOpus.channels = sw_codec_cfg.encoder.num_ch;
 
-                DecConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
-                if (DecConfigOpus.pInternalMemory == NULL) {
-                        LOG_ERR("Memory allocation failed for Opus encoder.");
-                        return -ENOMEM;  // or appropriate error code
-                }
+			uint32_t max_opus_frame_size = DEC_Opus_getMemorySize(&DecConfigOpus);
+			LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
 
-                int opus_err;
-                status = DEC_Opus_Init(&DecConfigOpus, &opus_err);
+			DecConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
+			if (DecConfigOpus.pInternalMemory == NULL) {
+				LOG_ERR("Memory allocation failed for Opus encoder.");
+				return -ENOMEM; // or appropriate error code
+			}
 
-                if(status != OPUS_SUCCESS)
-                {
-                        if (DecConfigOpus.pInternalMemory) {
-                                k_free(EncConfigOpus.pInternalMemory);
-                        }
-                        return opus_err;
-                }
+			int opus_err;
+			status = DEC_Opus_Init(&DecConfigOpus, &opus_err);
+
+			if (status != OPUS_SUCCESS) {
+				if (DecConfigOpus.pInternalMemory) {
+					k_free(EncConfigOpus.pInternalMemory);
+				}
+				return opus_err;
+			}
 		}
 		break;
 #else

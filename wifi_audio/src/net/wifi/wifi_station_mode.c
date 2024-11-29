@@ -26,7 +26,6 @@ LOG_MODULE_REGISTER(wifi_station_mode, CONFIG_LOG_DEFAULT_LEVEL);
 /* For net_sprint_ll_addr_buf */
 #include "net_private.h"
 
-
 /* Include the header file for the Wi-FI credentials library */
 #include <net/wifi_credentials.h>
 
@@ -51,7 +50,7 @@ static bool wifi_connected;
 static int cmd_wifi_status(void)
 {
 	struct net_if *iface;
-	struct wifi_iface_status status = { 0 };
+	struct wifi_iface_status status = {0};
 
 	iface = net_if_get_first_wifi();
 	if (!iface) {
@@ -60,7 +59,7 @@ static int cmd_wifi_status(void)
 	}
 
 	if (net_mgmt(NET_REQUEST_WIFI_IFACE_STATUS, iface, &status,
-				sizeof(struct wifi_iface_status))) {
+		     sizeof(struct wifi_iface_status))) {
 		LOG_ERR("Status request failed");
 		return -ENOEXEC;
 	}
@@ -76,8 +75,7 @@ static int cmd_wifi_status(void)
 		LOG_INF("Link Mode: %s", wifi_link_mode_txt(status.link_mode));
 		LOG_INF("SSID: %.32s", status.ssid);
 		LOG_INF("BSSID: %s",
-			net_sprint_ll_addr_buf(status.bssid,
-					       WIFI_MAC_ADDR_LEN, mac_string_buf,
+			net_sprint_ll_addr_buf(status.bssid, WIFI_MAC_ADDR_LEN, mac_string_buf,
 					       sizeof(mac_string_buf)));
 		LOG_INF("Band: %s", wifi_band_txt(status.band));
 		LOG_INF("Channel: %d", status.channel);
@@ -85,30 +83,24 @@ static int cmd_wifi_status(void)
 		LOG_INF("MFP: %s", wifi_mfp_txt(status.mfp));
 		LOG_INF("Beacon Interval: %d", status.beacon_interval);
 		LOG_INF("DTIM: %d", status.dtim_period);
-		LOG_INF("TWT: %s",
-			status.twt_capable ? "Supported" : "Not supported");
+		LOG_INF("TWT: %s", status.twt_capable ? "Supported" : "Not supported");
 	}
 
 	return 0;
 }
 
-
-static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb,
-									uint32_t mgmt_event, struct net_if *iface)
+static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
+				    struct net_if *iface)
 {
-	switch (mgmt_event)
-	{
+	switch (mgmt_event) {
 	case NET_EVENT_WIFI_CONNECT_RESULT:
 		LOG_INF("WiFi connected");
 		wifi_connected = true;
 		break;
 	case NET_EVENT_WIFI_DISCONNECT_RESULT:
-		if (wifi_connected == false)
-		{
+		if (wifi_connected == false) {
 			LOG_INF("Waiting for WiFi to be wifi_connected");
-		}
-		else
-		{
+		} else {
 			dk_set_led_off(DK_LED1);
 			LOG_INF("WiFi disconnected");
 			wifi_connected = false;
@@ -132,16 +124,14 @@ static void on_net_event_dhcp_bound(struct net_mgmt_event_callback *cb)
 }
 
 /* Define the callback function for network events */
-static void net_mgmt_event_handler(struct net_mgmt_event_callback *cb,
-								   uint32_t mgmt_event, struct net_if *iface)
+static void net_mgmt_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
+				   struct net_if *iface)
 {
-	if ((mgmt_event & L3_EVENT_MASK) != mgmt_event)
-	{
+	if ((mgmt_event & L3_EVENT_MASK) != mgmt_event) {
 		return;
 	}
 
-	if (mgmt_event == NET_EVENT_IPV4_DHCP_BOUND)
-	{
+	if (mgmt_event == NET_EVENT_IPV4_DHCP_BOUND) {
 		LOG_INF("Network DHCP bound");
 		on_net_event_dhcp_bound(cb);
 		dk_set_led_on(DK_LED1);
@@ -153,10 +143,10 @@ static void net_mgmt_event_handler(struct net_mgmt_event_callback *cb,
 int wifi_station_mode_ready(void)
 {
 
-        /* Wait to allow initialization of Wi-Fi driver */
+	/* Wait to allow initialization of Wi-Fi driver */
 	k_sleep(K_SECONDS(1));
 
-        /* Initialize and add the callback function for network events */
+	/* Initialize and add the callback function for network events */
 	net_mgmt_init_event_callback(&wifi_mgmt_cb, wifi_mgmt_event_handler, L2_EVENT_MASK);
 	net_mgmt_add_event_callback(&wifi_mgmt_cb);
 
@@ -168,8 +158,7 @@ int wifi_station_mode_ready(void)
 
 	/* Get the network interface */
 	struct net_if *iface = net_if_get_first_wifi();
-	if (iface == NULL)
-	{
+	if (iface == NULL) {
 		LOG_ERR("Returned network interface is NULL");
 		return -1;
 	}
@@ -177,14 +166,14 @@ int wifi_station_mode_ready(void)
 	/* Call net_mgmt() to request the Wi-Fi connection */
 	LOG_INF("Connecting to Wi-Fi with static crendentials.");
 	int err = net_mgmt(NET_REQUEST_WIFI_CONNECT_STORED, iface, NULL, 0);
-        if (err)
-	{
+	if (err) {
 		LOG_ERR("Connecting to Wi-Fi failed, err: %d", err);
 		return ENOEXEC;
 	}
 #else
-	LOG_INF("\r\n\r\nRunning on WiFi Station mode.\r\nPlease connect to router with 'wifi_cred' commands, use 'wifi_cred help' to get help.\r\n");
+	LOG_INF("\r\n\r\nRunning on WiFi Station mode.\r\nPlease connect to router with "
+		"'wifi_cred' commands, use 'wifi_cred help' to get help.\r\n");
 #endif
-        k_sem_take(&net_connect_ready, K_FOREVER);
+	k_sem_take(&net_connect_ready, K_FOREVER);
 	return 0;
 }

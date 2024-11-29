@@ -26,7 +26,7 @@
 LOG_MODULE_REGISTER(hw_codec, CONFIG_MODULE_HW_CODEC_LOG_LEVEL);
 
 #define VOLUME_ADJUST_STEP_DB 3
-#define BASE_10		      10
+#define BASE_10               10
 
 ZBUS_SUBSCRIBER_DEFINE(volume_evt_sub, CONFIG_VOLUME_MSG_SUB_QUEUE_SIZE);
 
@@ -402,7 +402,7 @@ static int cmd_input(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	if (( IS_ENABLED(CONFIG_AUDIO_GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_SOURCE_USB)) {
+	if ((IS_ENABLED(CONFIG_AUDIO_GATEWAY)) && IS_ENABLED(CONFIG_AUDIO_SOURCE_USB)) {
 		shell_error(shell, "Can't select PDM mic if audio source is USB");
 		return -EINVAL;
 	}
@@ -446,7 +446,7 @@ static int cmd_input(const struct shell *shell, size_t argc, char **argv)
 		break;
 	}
 	case PDM_MIC: {
-		if ( IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
+		if (IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
 			ret = cs47l63_comm_reg_conf_write(pdm_mic_enable_configure,
 							  ARRAY_SIZE(pdm_mic_enable_configure));
 			if (ret) {

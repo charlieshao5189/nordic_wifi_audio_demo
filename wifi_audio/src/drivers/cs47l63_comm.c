@@ -22,8 +22,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(CS47L63, CONFIG_CS47L63_LOG_LEVEL);
 
-#define CS47L63_DEVID_VAL 0x47A63
-#define PAD_LEN 4 /* Four bytes padding after address */
+#define CS47L63_DEVID_VAL               0x47A63
+#define PAD_LEN                         4 /* Four bytes padding after address */
 /* Delay the processing thread to allow interrupts to settle after boot */
 #define CS47L63_PROCESS_THREAD_DELAY_MS 10
 
@@ -121,12 +121,12 @@ static uint32_t cs47l63_comm_reg_read(uint32_t bsp_dev_id, uint8_t *addr_buffer,
 
 	int ret;
 
-	uint8_t pad_buffer[PAD_LEN] = { 0 };
+	uint8_t pad_buffer[PAD_LEN] = {0};
 
 	struct spi_buf_set rx;
-	struct spi_buf rx_buf[] = { { .buf = addr_buffer, .len = addr_length },
-				    { .buf = pad_buffer, .len = pad_len },
-				    { .buf = data_buffer, .len = data_length } };
+	struct spi_buf rx_buf[] = {{.buf = addr_buffer, .len = addr_length},
+				   {.buf = pad_buffer, .len = pad_len},
+				   {.buf = data_buffer, .len = data_length}};
 
 	rx.buffers = rx_buf;
 	rx.count = ARRAY_SIZE(rx_buf);
@@ -161,12 +161,12 @@ static uint32_t cs47l63_comm_reg_write(uint32_t bsp_dev_id, uint8_t *addr_buffer
 
 	int ret;
 
-	uint8_t pad_buffer[PAD_LEN] = { 0 };
+	uint8_t pad_buffer[PAD_LEN] = {0};
 
 	struct spi_buf_set tx;
-	struct spi_buf tx_buf[] = { { .buf = addr_buffer, .len = addr_length },
-				    { .buf = pad_buffer, .len = pad_len },
-				    { .buf = data_buffer, .len = data_length } };
+	struct spi_buf tx_buf[] = {{.buf = addr_buffer, .len = addr_length},
+				   {.buf = pad_buffer, .len = pad_len},
+				   {.buf = data_buffer, .len = data_length}};
 
 	tx.buffers = tx_buf;
 	tx.count = ARRAY_SIZE(tx_buf);
@@ -314,12 +314,12 @@ static void cs47l63_comm_thread(void *cs47l63_driver, void *dummy2, void *dummy3
 	}
 }
 
-static cs47l63_bsp_config_t bsp_config = { .bsp_reset_gpio_id = hw_codec_reset.pin,
-					   .bsp_int_gpio_id = hw_codec_irq.pin,
-					   .cp_config.bus_type = CS47L63_BUS_TYPE_SPI,
-					   .cp_config.spi_pad_len = 4,
-					   .notification_cb = &notification_callback,
-					   .notification_cb_arg = NULL };
+static cs47l63_bsp_config_t bsp_config = {.bsp_reset_gpio_id = hw_codec_reset.pin,
+					  .bsp_int_gpio_id = hw_codec_irq.pin,
+					  .cp_config.bus_type = CS47L63_BUS_TYPE_SPI,
+					  .cp_config.spi_pad_len = 4,
+					  .notification_cb = &notification_callback,
+					  .notification_cb_arg = NULL};
 
 int cs47l63_comm_init(cs47l63_t *cs47l63_driver)
 {
@@ -411,22 +411,22 @@ int cs47l63_comm_init(cs47l63_t *cs47l63_driver)
 	return 0;
 }
 
-static bsp_driver_if_t bsp_driver_if_s = { .set_gpio = &cs47l63_comm_gpio_set,
-					   .register_gpio_cb = &cs47l63_comm_gpio_cb_register,
-					   .set_timer = &cs47l63_comm_timer_set,
-					   .spi_read = &cs47l63_comm_reg_read,
-					   .spi_write = &cs47l63_comm_reg_write,
+static bsp_driver_if_t bsp_driver_if_s = {.set_gpio = &cs47l63_comm_gpio_set,
+					  .register_gpio_cb = &cs47l63_comm_gpio_cb_register,
+					  .set_timer = &cs47l63_comm_timer_set,
+					  .spi_read = &cs47l63_comm_reg_read,
+					  .spi_write = &cs47l63_comm_reg_write,
 
-					   /* Functions not supported */
-					   .set_supply = &cs47l63_comm_set_supply,
-					   .i2c_read_repeated_start =
-						   &cs47l63_comm_i2c_read_repeated_start,
-					   .i2c_write = &cs47l63_comm_i2c_write,
-					   .i2c_db_write = &cs47l63_comm_i2c_db_write,
-					   .i2c_reset = &cs47l63_comm_i2c_reset,
-					   .enable_irq = &cs47l63_comm_enable_irq,
-					   .disable_irq = &cs47l63_comm_disable_irq,
-					   .spi_throttle_speed = &cs47l63_comm_spi_throttle_speed,
-					   .spi_restore_speed = &cs47l63_comm_spi_restore_speed };
+					  /* Functions not supported */
+					  .set_supply = &cs47l63_comm_set_supply,
+					  .i2c_read_repeated_start =
+						  &cs47l63_comm_i2c_read_repeated_start,
+					  .i2c_write = &cs47l63_comm_i2c_write,
+					  .i2c_db_write = &cs47l63_comm_i2c_db_write,
+					  .i2c_reset = &cs47l63_comm_i2c_reset,
+					  .enable_irq = &cs47l63_comm_enable_irq,
+					  .disable_irq = &cs47l63_comm_disable_irq,
+					  .spi_throttle_speed = &cs47l63_comm_spi_throttle_speed,
+					  .spi_restore_speed = &cs47l63_comm_spi_restore_speed};
 
 bsp_driver_if_t *bsp_driver_if_g = &bsp_driver_if_s;

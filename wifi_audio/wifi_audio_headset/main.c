@@ -101,7 +101,7 @@ uint8_t stream_state_get(void)
 
 void streamctrl_send(void const *const data, size_t size)
 {
-	int ret=0;
+	int ret = 0;
 	static int prev_ret;
 
 	if (strm_state == STATE_STREAMING) {
@@ -118,7 +118,6 @@ void streamctrl_send(void const *const data, size_t size)
 		prev_ret = ret;
 	}
 }
-
 
 /**
  * @brief	Handle button activity.
@@ -152,22 +151,22 @@ static void button_msg_sub_thread(void)
 				// if (ret) {
 				// 	LOG_WRN("Failed to stop broadcaster: %d", ret);
 				// }
-                                send_audio_command(AUDIO_STOP_CMD);
-                                stream_state_set(STATE_PAUSED);
-                                // audio_system_stop();
-                                ret = led_on(LED_APP_1_BLUE);
-                                ERR_CHK(ret);
+				send_audio_command(AUDIO_STOP_CMD);
+				stream_state_set(STATE_PAUSED);
+				// audio_system_stop();
+				ret = led_on(LED_APP_1_BLUE);
+				ERR_CHK(ret);
 
 			} else if (strm_state == STATE_PAUSED) {
 				// ret = broadcast_source_start(0, ext_adv);
 				// if (ret) {
 				// 	LOG_WRN("Failed to start broadcaster: %d", ret);
 				// }
-                                // audio_system_start();
-                                stream_state_set(STATE_STREAMING);
-                                send_audio_command(AUDIO_START_CMD);
-                                ret = led_blink(LED_APP_1_BLUE);
-                                ERR_CHK(ret);
+				// audio_system_start();
+				stream_state_set(STATE_STREAMING);
+				send_audio_command(AUDIO_START_CMD);
+				ret = led_blink(LED_APP_1_BLUE);
+				ERR_CHK(ret);
 
 			} else {
 				LOG_WRN("In invalid state: %d", strm_state);
@@ -193,29 +192,30 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_UP:
-				if (strm_state != STATE_STREAMING) {
-					LOG_WRN("Not in streaming state");
-					break;
-				}
-				/* TODO: Should be implemented the same way as nrf5340_audio to allow for bidirectional volume control, this is a temporary solution */
-				ret = hw_codec_volume_increase();
-				if (ret) {
-					LOG_ERR("Failed to increase volume, ret: %d", ret);
-				}
-		break;
+			if (strm_state != STATE_STREAMING) {
+				LOG_WRN("Not in streaming state");
+				break;
+			}
+			/* TODO: Should be implemented the same way as nrf5340_audio to allow for
+			 * bidirectional volume control, this is a temporary solution */
+			ret = hw_codec_volume_increase();
+			if (ret) {
+				LOG_ERR("Failed to increase volume, ret: %d", ret);
+			}
+			break;
 
 		case BUTTON_VOLUME_DOWN:
-				if (strm_state != STATE_STREAMING) {
-					LOG_WRN("Not in streaming state");
-					break;
-				}
-				/* TODO: Should be implemented the same way as nrf5340_audio to allow for bidirectional volume control, this is a temporary solution */
-				ret = hw_codec_volume_decrease();
-				if (ret) {
-					LOG_ERR("Failed to decrease volume, ret: %d", ret);
-				}
-		break;
-
+			if (strm_state != STATE_STREAMING) {
+				LOG_WRN("Not in streaming state");
+				break;
+			}
+			/* TODO: Should be implemented the same way as nrf5340_audio to allow for
+			 * bidirectional volume control, this is a temporary solution */
+			ret = hw_codec_volume_decrease();
+			if (ret) {
+				LOG_ERR("Failed to decrease volume, ret: %d", ret);
+			}
+			break;
 
 		default:
 			LOG_WRN("Unexpected/unhandled button id: %d", msg.button_pin);
@@ -361,34 +361,36 @@ K_THREAD_STACK_DEFINE(socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE);
 static struct k_thread socket_util_thread_data;
 static k_tid_t socket_util_thread_id;
 
-int socket_util_init(void){
-        int ret;
-        /* Start thread to handle events from socket connection */
-        socket_util_thread_id = k_thread_create(&socket_util_thread_data, socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE,
-                                (k_thread_entry_t)socket_util_thread,  NULL, NULL, NULL,
-			K_PRIO_PREEMPT(CONFIG_SOCKET_UTIL_THREAD_PRIO), 0, K_NO_WAIT);
+int socket_util_init(void)
+{
+	int ret;
+	/* Start thread to handle events from socket connection */
+	socket_util_thread_id = k_thread_create(
+		&socket_util_thread_data, socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE,
+		(k_thread_entry_t)socket_util_thread, NULL, NULL, NULL,
+		K_PRIO_PREEMPT(CONFIG_SOCKET_UTIL_THREAD_PRIO), 0, K_NO_WAIT);
 
-        ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
-        socket_util_set_rx_callback(wifi_audio_rx_data_handler);
+	ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
+	socket_util_set_rx_callback(wifi_audio_rx_data_handler);
 	return ret;
 }
 
 int main(void)
 {
-        int ret;
-        LOG_INF("WiFi Audio Transceiver Start!");
+	int ret;
+	LOG_INF("WiFi Audio Transceiver Start!");
 
-				#ifdef HEAP_LISTENER
-        #if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
+#ifdef HEAP_LISTENER
+#if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
 
-                heap_listener_register(&my_heap_listener_alloc);
-                heap_listener_register(&my_heap_listener_free);
+	heap_listener_register(&my_heap_listener_alloc);
+	heap_listener_register(&my_heap_listener_free);
 
-        #endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
+#endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
 
-        #endif /* #ifdef HEAP_LISTENER */
+#endif /* #ifdef HEAP_LISTENER */
 
-        ret = nrf5340_audio_dk_init();
+	ret = nrf5340_audio_dk_init();
 	ERR_CHK(ret);
 
 	ret = fw_info_app_print();
@@ -397,23 +399,23 @@ int main(void)
 	ret = socket_util_init();
 	ERR_CHK(ret);
 
-        LOG_INF("audio_system_init"); 
+	LOG_INF("audio_system_init");
 	ret = audio_system_init();
 	ERR_CHK(ret);
 
-        ret = audio_system_config_set(48000, 0, 48000);
+	ret = audio_system_config_set(48000, 0, 48000);
 	ERR_CHK_MSG(ret, "Failed to set sample rate for decoder");
-        
-        audio_system_start();
 
-        ret = zbus_subscribers_create();
+	audio_system_start();
+
+	ret = zbus_subscribers_create();
 	ERR_CHK_MSG(ret, "Failed to create zbus subscriber threads");
 
 	ret = zbus_link_producers_observers();
 	ERR_CHK_MSG(ret, "Failed to link zbus producers and observers");
 
-        ret = wifi_audio_rx_init();
+	ret = wifi_audio_rx_init();
 	ERR_CHK_MSG(ret, "Failed to initialize rx path");
 
-        return 0;
+	return 0;
 }

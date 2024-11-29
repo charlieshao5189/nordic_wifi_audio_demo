@@ -6,8 +6,8 @@
 #define CAM_COMMAND_MAX_SIZE 6
 
 enum wifi_modes {
-        WIFI_STATION_MODE = 0,
-        WIFI_SOFTAP_MODE,
+	WIFI_STATION_MODE = 0,
+	WIFI_SOFTAP_MODE,
 };
 
 typedef void (*net_util_socket_rx_callback_t)(uint8_t *data, size_t len);
@@ -20,8 +20,8 @@ void socket_util_thread(void);
 #define BUFFER_MAX_SIZE 1508
 
 typedef struct {
-    uint8_t buf[BUFFER_MAX_SIZE];
-    size_t len;
+	uint8_t buf[BUFFER_MAX_SIZE];
+	size_t len;
 } socket_receive_t;
 
 extern struct k_msgq socket_recv_queue;

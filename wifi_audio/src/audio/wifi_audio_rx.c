@@ -20,7 +20,7 @@ LOG_MODULE_REGISTER(wifi_audio_rx, CONFIG_WIFI_AUDIO_RX_LOG_LEVEL);
 
 struct ble_iso_data {
 	// uint8_t data[251];
-        uint8_t data[1920];
+	uint8_t data[1920];
 	size_t data_size;
 	bool bad_frame;
 	uint32_t sdu_ref;
@@ -39,23 +39,23 @@ static k_tid_t audio_datapath_thread_id;
 K_THREAD_STACK_DEFINE(audio_datapath_thread_stack, CONFIG_AUDIO_DATAPATH_STACK_SIZE);
 
 struct audio_pcm_data_t {
-        size_t  size;
+	size_t size;
 	uint8_t data[1920];
 };
 
-# define CONFIG_BUF_WIFI_RX_PACKET_NUM 5
+#define CONFIG_BUF_WIFI_RX_PACKET_NUM 5
 
 DATA_FIFO_DEFINE(wifi_audio_rx, CONFIG_BUF_WIFI_RX_PACKET_NUM, sizeof(struct audio_pcm_data_t));
 
-# define CONFIG_CODEC_OPUS
+#define CONFIG_CODEC_OPUS
 
-# ifdef CONFIG_CODEC_OPUS
+#ifdef CONFIG_CODEC_OPUS
 
-
-# endif
-static int16_t rx_data_continute_count=0;
-void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
-        int ret;
+#endif
+static int16_t rx_data_continute_count = 0;
+void audio_data_frame_process(uint8_t *p_data, size_t data_size)
+{
+	int ret;
 	uint32_t blocks_alloced_num, blocks_locked_num;
 	struct audio_pcm_data_t *data_received = NULL;
 	// static struct rx_stats rx_stats[AUDIO_CH_NUM];
@@ -105,8 +105,6 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 	// 	return;
 	// }
 
-
-
 	ret = data_fifo_num_used_get(&wifi_audio_rx, &blocks_alloced_num, &blocks_locked_num);
 	ERR_CHK(ret);
 
@@ -126,7 +124,7 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 		ERR_CHK(ret);
 
 		data_fifo_block_free(&wifi_audio_rx, stale_data);
-                rx_data_continute_count=0;
+		rx_data_continute_count = 0;
 	}
 
 	ret = data_fifo_pointer_first_vacant_get(&wifi_audio_rx, (void *)&data_received, K_NO_WAIT);
@@ -138,7 +136,7 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 	}
 
 	// memcpy(iso_received->data, p_data+2, data_size-2);
-        memcpy(data_received->data, p_data, data_size);
+	memcpy(data_received->data, p_data, data_size);
 	// iso_received->bad_frame = bad_frame;
 	data_received->size = data_size;
 	// iso_received->sdu_ref = sdu_ref;
@@ -149,93 +147,96 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size) {
 	ERR_CHK_MSG(ret, "Failed to lock block");
 }
 
-
-#define TOTAL_PACKET_SIZE (1024 + 896)  // Total size of the two packets to be assembled
+#define TOTAL_PACKET_SIZE (1024 + 896) // Total size of the two packets to be assembled
 
 #define MAX_AUDIO_FRAME_SIZE 1920
-#define HEADER_SIZE 3          // Start sequence (2 bytes) + identifier (1 byte)
-#define FOOTER_SIZE 2          // End sequence (2 bytes)
-#define FULL_FRAME_SIZE (HEADER_SIZE + MAX_AUDIO_FRAME_SIZE + FOOTER_SIZE)
+#define HEADER_SIZE          3 // Start sequence (2 bytes) + identifier (1 byte)
+#define FOOTER_SIZE          2 // End sequence (2 bytes)
+#define FULL_FRAME_SIZE      (HEADER_SIZE + MAX_AUDIO_FRAME_SIZE + FOOTER_SIZE)
 
-void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size) {
+void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size)
+{
 
-        LOG_INF("Received data size: %d", data_size);
-        // LOG_HEXDUMP_INF(p_data, data_size, "Received data:");
-    // Static buffer to store accumulated data
-    static uint8_t frame_buffer[FULL_FRAME_SIZE];  // Buffer sized for a full frame with headers and footers
-    static size_t current_frame_size = 0;
+	LOG_INF("Received data size: %d", data_size);
+	// LOG_HEXDUMP_INF(p_data, data_size, "Received data:");
+	// Static buffer to store accumulated data
+	static uint8_t frame_buffer[FULL_FRAME_SIZE]; // Buffer sized for a full frame with headers
+						      // and footers
+	static size_t current_frame_size = 0;
 
-    // Copy incoming data chunk to frame buffer if it fits
-    if (current_frame_size + data_size > FULL_FRAME_SIZE) {
-        LOG_ERR("Frame buffer overflow, discarding accumulated data.");
-        current_frame_size = 0;  // Reset if overflowed
-        return;
-    }
+	// Copy incoming data chunk to frame buffer if it fits
+	if (current_frame_size + data_size > FULL_FRAME_SIZE) {
+		LOG_ERR("Frame buffer overflow, discarding accumulated data.");
+		current_frame_size = 0; // Reset if overflowed
+		return;
+	}
 
-    memcpy(frame_buffer + current_frame_size, p_data, data_size);
-    current_frame_size += data_size;
+	memcpy(frame_buffer + current_frame_size, p_data, data_size);
+	current_frame_size += data_size;
 
-    // Check if we have at least the minimum size for a complete frame
-    if (current_frame_size >= HEADER_SIZE + FOOTER_SIZE) {
-        // Verify start sequence
-        if (frame_buffer[0] == START_SEQUENCE_1 && frame_buffer[1] == START_SEQUENCE_2) {
-            // Check for end sequence at the expected position
-            if (current_frame_size >= HEADER_SIZE + FOOTER_SIZE &&
-                frame_buffer[current_frame_size - 2] == END_SEQUENCE_1 &&
-                frame_buffer[current_frame_size - 1] == END_SEQUENCE_2) {
+	// Check if we have at least the minimum size for a complete frame
+	if (current_frame_size >= HEADER_SIZE + FOOTER_SIZE) {
+		// Verify start sequence
+		if (frame_buffer[0] == START_SEQUENCE_1 && frame_buffer[1] == START_SEQUENCE_2) {
+			// Check for end sequence at the expected position
+			if (current_frame_size >= HEADER_SIZE + FOOTER_SIZE &&
+			    frame_buffer[current_frame_size - 2] == END_SEQUENCE_1 &&
+			    frame_buffer[current_frame_size - 1] == END_SEQUENCE_2) {
 
-                // Verify the identifier
-                if (frame_buffer[2] == SEND_DATA_SIGN) {
-                    // Calculate audio data length
-                    size_t audio_data_length = current_frame_size - HEADER_SIZE - FOOTER_SIZE;
-                    if (audio_data_length <= MAX_AUDIO_FRAME_SIZE) {
-                        // Process the audio data
-                        audio_data_frame_process(frame_buffer + HEADER_SIZE, audio_data_length);
-                        LOG_INF("Audio frame data length: %d", audio_data_length);
-                    } else {
-                        LOG_ERR("Audio data length exceeds maximum frame size.");
-                    }
-                } else {
-                    LOG_ERR("Unexpected data identifier.");
-                }
+				// Verify the identifier
+				if (frame_buffer[2] == SEND_DATA_SIGN) {
+					// Calculate audio data length
+					size_t audio_data_length =
+						current_frame_size - HEADER_SIZE - FOOTER_SIZE;
+					if (audio_data_length <= MAX_AUDIO_FRAME_SIZE) {
+						// Process the audio data
+						audio_data_frame_process(frame_buffer + HEADER_SIZE,
+									 audio_data_length);
+						LOG_INF("Audio frame data length: %d",
+							audio_data_length);
+					} else {
+						LOG_ERR("Audio data length exceeds maximum frame "
+							"size.");
+					}
+				} else {
+					LOG_ERR("Unexpected data identifier.");
+				}
 
-                // Reset buffer for the next frame
-                current_frame_size = 0;
-            }
-        } else {
-            LOG_ERR("Invalid start sequence, discarding packet.");
-            current_frame_size = 0;  // Reset on invalid start sequence
-        }
-    }
+				// Reset buffer for the next frame
+				current_frame_size = 0;
+			}
+		} else {
+			LOG_ERR("Invalid start sequence, discarding packet.");
+			current_frame_size = 0; // Reset on invalid start sequence
+		}
+	}
 }
-
-
 
 /**
  * @brief	Receive data from BLE through a k_fifo and send to USB or audio datapath.
  */
 static void audio_datapath_thread(void *dummy1, void *dummy2, void *dummy3)
 {
-    int ret;
-    struct audio_pcm_data_t *iso_received = NULL;
-    size_t size_received;
+	int ret;
+	struct audio_pcm_data_t *iso_received = NULL;
+	size_t size_received;
 
-    while (1) {
-        ret = data_fifo_pointer_last_filled_get(&wifi_audio_rx, (void *)&iso_received,
-                                                &size_received, K_FOREVER);
-        ERR_CHK(ret);
+	while (1) {
+		ret = data_fifo_pointer_last_filled_get(&wifi_audio_rx, (void *)&iso_received,
+							&size_received, K_FOREVER);
+		ERR_CHK(ret);
 
-        if (IS_ENABLED(CONFIG_AUDIO_SOURCE_USB) && IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
-            // ret = audio_system_decode(iso_received->data, iso_received->data_size,
-            //                          iso_received->bad_frame);
-            ERR_CHK(ret);
-        } else {
-            audio_datapath_stream_out(iso_received->data, iso_received->size);
-        }
-        data_fifo_block_free(&wifi_audio_rx, (void *)iso_received);
+		if (IS_ENABLED(CONFIG_AUDIO_SOURCE_USB) && IS_ENABLED(CONFIG_AUDIO_GATEWAY)) {
+			// ret = audio_system_decode(iso_received->data, iso_received->data_size,
+			//                          iso_received->bad_frame);
+			ERR_CHK(ret);
+		} else {
+			audio_datapath_stream_out(iso_received->data, iso_received->size);
+		}
+		data_fifo_block_free(&wifi_audio_rx, (void *)iso_received);
 
-        STACK_USAGE_PRINT("audio_datapath_thread", &audio_datapath_thread_data);
-    }
+		STACK_USAGE_PRINT("audio_datapath_thread", &audio_datapath_thread_data);
+	}
 }
 
 static int audio_datapath_thread_create(void)
@@ -279,47 +280,49 @@ int wifi_audio_rx_init(void)
 	return 0;
 }
 
-void send_audio_command(uint8_t audio_command) {
-    // Define the command packet with placeholders for start, command, and end
-    uint8_t command_packet[] = {
-        START_SEQUENCE_1,   // 0xFF
-        START_SEQUENCE_2,   // 0xAA
-        SEND_CMD_SIGN,               // 0x00 command; 0x01 data
-        audio_command,      // Command: Variable (e.g., AUDIO_START_CMD or AUDIO_STOP_CMD)
-        END_SEQUENCE_1,     // 0xFF
-        END_SEQUENCE_2      // 0xBB
-    };
+void send_audio_command(uint8_t audio_command)
+{
+	// Define the command packet with placeholders for start, command, and end
+	uint8_t command_packet[] = {
+		START_SEQUENCE_1, // 0xFF
+		START_SEQUENCE_2, // 0xAA
+		SEND_CMD_SIGN,    // 0x00 command; 0x01 data
+		audio_command,    // Command: Variable (e.g., AUDIO_START_CMD or AUDIO_STOP_CMD)
+		END_SEQUENCE_1,   // 0xFF
+		END_SEQUENCE_2    // 0xBB
+	};
 
-    size_t packet_size = sizeof(command_packet);  // Calculate packet size
-    socket_util_tx_data((uint8_t *)command_packet, packet_size);
+	size_t packet_size = sizeof(command_packet); // Calculate packet size
+	socket_util_tx_data((uint8_t *)command_packet, packet_size);
 }
 
-void send_audio_frame(uint8_t *audio_data, size_t data_length) {
-    // Define the data packet size, including start and end sequences
-    size_t total_packet_size = 5 + data_length;  // 4 bytes for headers + data_length
+void send_audio_frame(uint8_t *audio_data, size_t data_length)
+{
+	// Define the data packet size, including start and end sequences
+	size_t total_packet_size = 5 + data_length; // 4 bytes for headers + data_length
 
-    // Create a buffer for the complete data packet
-    uint8_t *data_packet = (uint8_t *)k_malloc(total_packet_size);
-    if (data_packet == NULL) {
-        LOG_ERR("Memory allocation failed for data_packet.");
-        return;
-    }
+	// Create a buffer for the complete data packet
+	uint8_t *data_packet = (uint8_t *)k_malloc(total_packet_size);
+	if (data_packet == NULL) {
+		LOG_ERR("Memory allocation failed for data_packet.");
+		return;
+	}
 
-    // Fill the data packet with the specified format
-    data_packet[0] = START_SEQUENCE_1;   // 0xFF
-    data_packet[1] = START_SEQUENCE_2;   // 0xAA
-    data_packet[2] = SEND_DATA_SIGN;                // Data identifier (can be changed as needed)
+	// Fill the data packet with the specified format
+	data_packet[0] = START_SEQUENCE_1; // 0xFF
+	data_packet[1] = START_SEQUENCE_2; // 0xAA
+	data_packet[2] = SEND_DATA_SIGN;   // Data identifier (can be changed as needed)
 
-    // Copy the audio data into the packet starting at the offset for the actual data
-    bytecpy(data_packet + 3, audio_data, data_length); // 3rd byte is data identifier
+	// Copy the audio data into the packet starting at the offset for the actual data
+	bytecpy(data_packet + 3, audio_data, data_length); // 3rd byte is data identifier
 
-    // Fill the end header
-    data_packet[total_packet_size - 2] = END_SEQUENCE_1; // 0xFF
-    data_packet[total_packet_size - 1] = END_SEQUENCE_2; // 0xBB
+	// Fill the end header
+	data_packet[total_packet_size - 2] = END_SEQUENCE_1; // 0xFF
+	data_packet[total_packet_size - 1] = END_SEQUENCE_2; // 0xBB
 
-    // Send the prepared data packet
-    socket_util_tx_data(data_packet, total_packet_size);
+	// Send the prepared data packet
+	socket_util_tx_data(data_packet, total_packet_size);
 
-    // Free allocated memory
-    k_free(data_packet);
+	// Free allocated memory
+	k_free(data_packet);
 }

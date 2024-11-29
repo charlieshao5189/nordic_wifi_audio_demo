@@ -9,9 +9,9 @@
 
 #include <stdint.h>
 
-#define LED_APP_RGB	0
-#define LED_NET_RGB	1
-#define LED_APP_1_BLUE	2
+#define LED_APP_RGB     0
+#define LED_NET_RGB     1
+#define LED_APP_1_BLUE  2
 #define LED_APP_2_GREEN 3
 #define LED_APP_3_GREEN 4
 
@@ -23,13 +23,13 @@
 #define BLU BLUE
 
 enum led_color {
-	LED_COLOR_OFF,	   /* 000 */
-	LED_COLOR_RED,	   /* 001 */
+	LED_COLOR_OFF,     /* 000 */
+	LED_COLOR_RED,     /* 001 */
 	LED_COLOR_GREEN,   /* 010 */
 	LED_COLOR_YELLOW,  /* 011 */
-	LED_COLOR_BLUE,	   /* 100 */
+	LED_COLOR_BLUE,    /* 100 */
 	LED_COLOR_MAGENTA, /* 101 */
-	LED_COLOR_CYAN,	   /* 110 */
+	LED_COLOR_CYAN,    /* 110 */
 	LED_COLOR_WHITE,   /* 111 */
 	LED_COLOR_NUM,
 };

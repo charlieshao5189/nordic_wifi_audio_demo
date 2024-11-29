@@ -107,11 +107,10 @@ static void audio_headset_configure(void)
 	}
 }
 
-
 #if (CONFIG_SW_CODEC_OPUS)
-size_t encoded_bytes;  // Variable to hold the size of encoded data
-uint8_t opus_output[48]; 
-#endif //CONFIG_CODEC_OPUS
+size_t encoded_bytes; // Variable to hold the size of encoded data
+uint8_t opus_output[48];
+#endif // CONFIG_CODEC_OPUS
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
 {
@@ -165,7 +164,7 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 				ERR_CHK(ret);
 			}
 
- 			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
+			ret = sw_codec_encode(pcm_raw_data, FRAME_SIZE_BYTES, &encoded_data,
 					      &encoded_data_size);
 
 			ERR_CHK_MSG(ret, "Encode failed");
@@ -184,14 +183,14 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 		}
 
 		if (sw_codec_cfg.encoder.enabled) {
-                #if (CONFIG_SW_CODEC_OPUS)
-                        send_audio_frame(encoded_data, encoded_data_size);
-                # else
-                        // send_audio_frame(uint8_t *audio_data, size_t data_length);
-                        send_audio_frame(pcm_raw_data, FRAME_SIZE_BYTES);
-                # endif //CONFIG_CODEC_OPUS
+#if (CONFIG_SW_CODEC_OPUS)
+			send_audio_frame(encoded_data, encoded_data_size);
+#else
+			// send_audio_frame(uint8_t *audio_data, size_t data_length);
+			send_audio_frame(pcm_raw_data, FRAME_SIZE_BYTES);
+#endif // CONFIG_CODEC_OPUS
 		}
-               
+
 		STACK_USAGE_PRINT("encoder_thread", &encoder_thread_data);
 	}
 }
@@ -452,10 +451,10 @@ void audio_system_stop(void)
 	sw_codec_cfg.initialized = false;
 
 	ret = data_fifo_empty(&fifo_rx);
-        ERR_CHK(ret);
+	ERR_CHK(ret);
 
 	ret = data_fifo_empty(&fifo_tx);
-        ERR_CHK(ret);
+	ERR_CHK(ret);
 }
 
 int audio_system_fifo_rx_block_drop(void)
@@ -486,13 +485,13 @@ int audio_system_init(void)
 	int ret;
 
 #if IS_ENABLED(CONFIG_AUDIO_GATEWAY)
-        #if (CONFIG_AUDIO_SOURCE_USB)
-                ret = audio_usb_init();
-                if (ret) {
-                        LOG_ERR("Failed to initialize USB: %d", ret);
-                        return ret;
-                }
-        #endif //CONFIG_AUDIO_SOURCE_USB
+#if (CONFIG_AUDIO_SOURCE_USB)
+	ret = audio_usb_init();
+	if (ret) {
+		LOG_ERR("Failed to initialize USB: %d", ret);
+		return ret;
+	}
+#endif // CONFIG_AUDIO_SOURCE_USB
 
 #elif IS_ENABLED(CONFIG_AUDIO_HEADSET)
 	ret = audio_datapath_init();

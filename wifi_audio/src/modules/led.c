@@ -18,12 +18,12 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(led, CONFIG_MODULE_LED_LOG_LEVEL);
 
-#define BLINK_FREQ_MS			    1000
+#define BLINK_FREQ_MS                       1000
 /* Maximum number of LED_UNITS. 1 RGB LED = 1 UNIT of 3 LEDS */
-#define LED_UNIT_MAX			    10
-#define NUM_COLORS_RGB			    3
-#define BASE_10				    10
-#define DT_LABEL_AND_COMMA(node_id)	    DT_PROP(node_id, label),
+#define LED_UNIT_MAX                        10
+#define NUM_COLORS_RGB                      3
+#define BASE_10                             10
+#define DT_LABEL_AND_COMMA(node_id)         DT_PROP(node_id, label),
 #define GPIO_DT_SPEC_GET_AND_COMMA(node_id) GPIO_DT_SPEC_GET(node_id, gpios),
 
 /* The following arrays are populated compile time from the .dts*/
