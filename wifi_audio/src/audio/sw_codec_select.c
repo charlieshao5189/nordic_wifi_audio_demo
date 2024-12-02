@@ -197,7 +197,7 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 					opus_strerror(encoded_bytes_written));
 				return encoded_bytes_written;
 			} else {
-				LOG_INF("Opus encoded output data size: %zu bytes",
+				LOG_DBG("Opus encoded output data size: %zu bytes",
 					encoded_bytes_written);
 			}
 			break;
@@ -389,7 +389,7 @@ int sw_codec_decode(uint8_t const *const encoded_data, size_t encoded_size, bool
 		case SW_CODEC_STEREO: {
 			pcm_size_stereo = DEC_Opus_Decode((uint8_t *)encoded_data, encoded_size,
 							  DecConfigOpus.pInternalMemory);
-			LOG_INF("pcm fram samples size: %d", pcm_size_stereo);
+			LOG_DBG("pcm fram samples size: %d", pcm_size_stereo);
 			// LOG_HEXDUMP_INF(DecConfigOpus.pInternalMemory, numDec, "PCM Raw Data");
 			break;
 		}
