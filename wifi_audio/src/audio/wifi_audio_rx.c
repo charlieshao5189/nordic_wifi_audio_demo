@@ -157,7 +157,7 @@ void audio_data_frame_process(uint8_t *p_data, size_t data_size)
 void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size)
 {
 
-	LOG_DBG("Received data size: %d", data_size);
+	// LOG_DBG("Received data size: %d", data_size);
 	// LOG_HEXDUMP_INF(p_data, data_size, "Received data:");
 	// Static buffer to store accumulated data
 	static uint8_t frame_buffer[FULL_FRAME_SIZE]; // Buffer sized for a full frame with headers
@@ -206,7 +206,7 @@ void wifi_audio_rx_data_handler(uint8_t *p_data, size_t data_size)
 				current_frame_size = 0;
 			}
 		} else {
-			LOG_ERR("Invalid start sequence, discarding packet.");
+			LOG_WRN("Invalid start sequence, discarding packet.");
 			current_frame_size = 0; // Reset on invalid start sequence
 		}
 	}

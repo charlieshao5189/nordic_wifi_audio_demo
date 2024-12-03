@@ -36,16 +36,12 @@ LOG_MODULE_REGISTER(wifi_station_mode, CONFIG_LOG_DEFAULT_LEVEL);
 #define L2_EVENT_MASK (NET_EVENT_WIFI_CONNECT_RESULT | NET_EVENT_WIFI_DISCONNECT_RESULT)
 #define L3_EVENT_MASK NET_EVENT_IPV4_DHCP_BOUND
 
-/**********External Resources START**************/
-extern struct k_sem net_connect_ready;
-/**********External Resources END**************/
-
 /* Declare the callback structure for Wi-Fi events */
 static struct net_mgmt_event_callback wifi_mgmt_cb;
 static struct net_mgmt_event_callback net_mgmt_cb;
 
-/* Define the boolean wifi_connected and the semaphore net_connect_ready */
-static bool wifi_connected;
+/* Define the boolean wifi_connected_signal */
+static volatile bool wifi_connected_signal;
 
 static int cmd_wifi_status(void)
 {
@@ -95,17 +91,16 @@ static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb, uint32_t
 	switch (mgmt_event) {
 	case NET_EVENT_WIFI_CONNECT_RESULT:
 		LOG_INF("WiFi connected");
-		wifi_connected = true;
+		/*  wifi_connected_signal = true;*/
 		break;
 	case NET_EVENT_WIFI_DISCONNECT_RESULT:
-		if (wifi_connected == false) {
-			LOG_INF("Waiting for WiFi to be wifi_connected");
+		if (wifi_connected_signal == false) {
+			LOG_INF("Waiting for WiFi to be wifi_connected_signal");
 		} else {
 			dk_set_led_off(DK_LED1);
 			LOG_INF("WiFi disconnected");
-			wifi_connected = false;
+			wifi_connected_signal = false;
 		}
-		k_sem_reset(&net_connect_ready);
 		break;
 	default:
 		break;
@@ -120,7 +115,7 @@ static void on_net_event_dhcp_bound(struct net_mgmt_event_callback *cb)
 	const struct in_addr *addr = &dhcpv4->requested_ip;
 	char dhcp_info[128];
 	net_addr_ntop(AF_INET, addr, dhcp_info, sizeof(dhcp_info));
-	LOG_INF("\r\n\r\nWiFi is ready, socket %s:60010 is open for connection.\r\n", dhcp_info);
+	LOG_INF("\r\n\r\nWiFi is ready, socket %s:60010 is ready for connection.\r\n", dhcp_info);
 }
 
 /* Define the callback function for network events */
@@ -135,7 +130,7 @@ static void net_mgmt_event_handler(struct net_mgmt_event_callback *cb, uint32_t 
 		LOG_INF("Network DHCP bound");
 		on_net_event_dhcp_bound(cb);
 		dk_set_led_on(DK_LED1);
-		k_sem_give(&net_connect_ready);
+		wifi_connected_signal = true;
 		return;
 	}
 }
@@ -174,6 +169,10 @@ int wifi_station_mode_ready(void)
 	LOG_INF("\r\n\r\nRunning on WiFi Station mode.\r\nPlease connect to router with "
 		"'wifi_cred' commands, use 'wifi_cred help' to get help.\r\n");
 #endif
-	k_sem_take(&net_connect_ready, K_FOREVER);
+        while (!wifi_connected_signal) {
+                k_sleep(K_MSEC(100));
+        }
+        LOG_INF("Wi-Fi is ready, proceeding with the application.");
+        
 	return 0;
 }

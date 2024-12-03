@@ -21,7 +21,6 @@
 #include "macros_common.h"
 #include "audio_system.h"
 #include "audio_datapath.h"
-// #include "audio_codec_opus_api.h"
 #include "fw_info_app.h"
 #include "streamctrl.h"
 #include "socket_util.h"
@@ -31,6 +30,10 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/heap_listener.h>
 #include <zephyr/zbus/zbus.h>
+
+#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+extern volatile bool serveraddr_set_signall;
+#endif /*#if defined(CONFIG_SOCKET_ROLE_CLIENT)*/
 
 LOG_MODULE_REGISTER(MODULE, CONFIG_MAIN_LOG_LEVEL);
 
@@ -105,7 +108,7 @@ HEAP_LISTENER_FREE_DEFINE(system_heap_listener_free, HEAP_ID_FROM_POINTER(&_syst
 /* Function for handling all stream state changes */
 static void stream_state_set(enum stream_state stream_state_new)
 {
-	LOG_WRN("Stream state changed from %d to %d", strm_state, stream_state_new);
+	LOG_INF("Stream state changed from %d to %d", strm_state, stream_state_new);
 	strm_state = stream_state_new;
 }
 
@@ -161,32 +164,25 @@ static void button_msg_sub_thread(void)
 
 		switch (msg.button_pin) {
 		case BUTTON_PLAY_PAUSE:
-			if (strm_state == STATE_STREAMING) {
-				// ret = broadcast_source_stop(0);
-				// if (ret) {
-				// 	LOG_WRN("Failed to stop broadcaster: %d", ret);
-				// }
-				send_audio_command(AUDIO_STOP_CMD);
-				stream_state_set(STATE_PAUSED);
-				// audio_system_stop();
-				ret = led_on(LED_APP_1_BLUE);
-				ERR_CHK(ret);
+			if (serveraddr_set_signall == true) {
+				if (strm_state == STATE_STREAMING) {
+					send_audio_command(AUDIO_STOP_CMD);
+					stream_state_set(STATE_PAUSED);
+					ret = led_on(LED_APP_1_BLUE);
+					ERR_CHK(ret);
 
-			} else if (strm_state == STATE_PAUSED) {
-				// ret = broadcast_source_start(0, ext_adv);
-				// if (ret) {
-				// 	LOG_WRN("Failed to start broadcaster: %d", ret);
-				// }
-				// audio_system_start();
-				stream_state_set(STATE_STREAMING);
-				send_audio_command(AUDIO_START_CMD);
-				ret = led_blink(LED_APP_1_BLUE);
-				ERR_CHK(ret);
+				} else if (strm_state == STATE_PAUSED) {
+					stream_state_set(STATE_STREAMING);
+					send_audio_command(AUDIO_START_CMD);
+					ret = led_blink(LED_APP_1_BLUE);
+					ERR_CHK(ret);
 
+				} else {
+					LOG_WRN("In invalid state: %d", strm_state);
+				}
 			} else {
-				LOG_WRN("In invalid state: %d", strm_state);
+				LOG_WRN("Please set socket server address first!");
 			}
-
 			break;
 
 		case BUTTON_4:
@@ -211,8 +207,9 @@ static void button_msg_sub_thread(void)
 				LOG_WRN("Not in streaming state");
 				break;
 			}
-			/* TODO: Should be implemented the same way as nrf5340_audio to allow for
-			 * bidirectional volume control, this is a temporary solution */
+			/* TODO: Should be implemented the same way as nrf5340_audio to
+			 * allow for bidirectional volume control, this is a temporary
+			 * solution */
 			ret = hw_codec_volume_increase();
 			if (ret) {
 				LOG_ERR("Failed to increase volume, ret: %d", ret);
@@ -224,8 +221,9 @@ static void button_msg_sub_thread(void)
 				LOG_WRN("Not in streaming state");
 				break;
 			}
-			/* TODO: Should be implemented the same way as nrf5340_audio to allow for
-			 * bidirectional volume control, this is a temporary solution */
+			/* TODO: Should be implemented the same way as nrf5340_audio to
+			 * allow for bidirectional volume control, this is a temporary
+			 * solution */
 			ret = hw_codec_volume_decrease();
 			if (ret) {
 				LOG_ERR("Failed to decrease volume, ret: %d", ret);
@@ -329,10 +327,9 @@ static int zbus_subscribers_create(void)
 		return ret;
 	}
 
-	// ret = zbus_chan_add_obs(&sdu_ref_chan, &sdu_ref_msg_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add timestamp listener");
-	// 	return ret;
+	// ret = zbus_chan_add_obs(&sdu_ref_chan, &sdu_ref_msg_listen,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add timestamp
+	// listener"); 	return ret;
 	// }
 
 	return 0;
@@ -357,16 +354,14 @@ static int zbus_link_producers_observers(void)
 		return ret;
 	}
 
-	// ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add le_audio sub");
-	// 	return ret;
+	// ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add le_audio
+	// sub"); 	return ret;
 	// }
 
-	// ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add bt_mgmt listener");
-	// 	return ret;
+	// ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add bt_mgmt
+	// listener"); 	return ret;
 	// }
 
 	return 0;

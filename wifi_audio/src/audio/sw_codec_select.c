@@ -215,7 +215,7 @@ int sw_codec_encode(void *pcm_data, size_t pcm_size, uint8_t **encoded_data, siz
 		break;
 	}
 	default:
-		LOG_INF("No sw codec set for encoding, send uncompressed PCM data directly.");
+		LOG_DBG("No sw codec set for encoding, send uncompressed PCM data directly.");
 	}
 
 	return 0; // Success
@@ -587,9 +587,9 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 			EncConfigOpus.ms_frame = CONFIG_AUDIO_FRAME_DURATION_US / 1000;
 			EncConfigOpus.sample_freq = sw_codec_cfg.encoder.sample_rate_hz;
 
-			uint32_t max_opus_frame_size = ENC_Opus_getMemorySize(&EncConfigOpus);
-			LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
-			EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
+			uint32_t enc_max_opus_frame_size = ENC_Opus_getMemorySize(&EncConfigOpus);
+			LOG_INF("enc_max_opus_frame_size: %d", enc_max_opus_frame_size);
+			EncConfigOpus.pInternalMemory = (uint8_t *)k_malloc(enc_max_opus_frame_size);
 			if (EncConfigOpus.pInternalMemory == NULL) {
 				LOG_ERR("Memory allocation failed for Opus encoder.");
 				return -ENOMEM; // or appropriate error code
@@ -628,10 +628,10 @@ int sw_codec_init(struct sw_codec_config sw_codec_cfg)
 			DecConfigOpus.sample_freq = sw_codec_cfg.decoder.sample_rate_hz;
 			DecConfigOpus.channels = sw_codec_cfg.decoder.num_ch;
 
-			uint32_t max_opus_frame_size = DEC_Opus_getMemorySize(&DecConfigOpus);
-			LOG_INF("max_opus_frame_size: %d", max_opus_frame_size);
+			uint32_t dec_max_opus_frame_size = DEC_Opus_getMemorySize(&DecConfigOpus);
+			LOG_INF("dec_max_opus_frame_size: %d", dec_max_opus_frame_size);
 
-			DecConfigOpus.pInternalMemory = (uint8_t *)k_malloc(max_opus_frame_size);
+			DecConfigOpus.pInternalMemory = (uint8_t *)k_malloc(dec_max_opus_frame_size);
 			if (DecConfigOpus.pInternalMemory == NULL) {
 				LOG_ERR("Memory allocation failed for Opus encoder.");
 				return -ENOMEM; // or appropriate error code

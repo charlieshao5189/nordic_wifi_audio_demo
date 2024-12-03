@@ -21,9 +21,8 @@ static bool wifi_ready_status;
 
 #include <dk_buttons_and_leds.h>
 
-/**********External Resources START**************/
-extern struct k_sem net_connect_ready;
-/**********External Resources END**************/
+static volatile bool wifi_connected_signal = false;
+
 int wifi_softap_mode_ready(void);
 
 static struct net_mgmt_event_callback wifi_sap_mgmt_cb;
@@ -106,7 +105,7 @@ static void handle_wifi_ap_sta_connected(struct net_mgmt_event_callback *cb)
 	dk_set_led_on(DK_LED1);
 	LOG_INF("\r\n\r\nWiFi is ready on nRF5340 Audio DK + nRF7002EK. Try to connect the "
 		"socket(udp by default)from address 192.168.1.1:60010.\r\n");
-	k_sem_give(&net_connect_ready);
+	wifi_connected_signal = true;
 }
 
 static void handle_wifi_ap_sta_disconnected(struct net_mgmt_event_callback *cb)
@@ -138,7 +137,7 @@ static void handle_wifi_ap_sta_disconnected(struct net_mgmt_event_callback *cb)
 	wifi_ap_stations_unlocked();
 	k_mutex_unlock(&wifi_ap_sta_list_lock);
 	dk_set_led_off(DK_LED1);
-	k_sem_reset(&net_connect_ready);
+	wifi_connected_signal = false;
 	LOG_INF("\r\nWi-Fi is disconnected. Ready for new Wi-Fi connection.\r\n");
 	LOG_INF("\r\n\r\nRunning on WiFi SoftAP mode.\r\nPlease connect PC WiFi network to SSID "
 		"'WiFi_Audio_AP' and password 'Auido@WiFi'.\r\n");
@@ -351,7 +350,12 @@ static int start_app(void)
 
 	LOG_INF("\r\n\r\nRunning on WiFi SoftAP mode.\r\nPlease connect PC WiFi network to SSID "
 		"'WiFi_Audio_AP' and password 'Auido@WiFi'.\r\n");
-	k_sem_take(&net_connect_ready, K_FOREVER);
+
+	while (!wifi_connected_signal) {
+		k_sleep(K_MSEC(100));
+	}
+
+	LOG_INF("Wi-Fi is ready, proceeding with the application.");
 	return 0;
 }
 

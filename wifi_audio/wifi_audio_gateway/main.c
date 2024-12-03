@@ -33,6 +33,8 @@
 #include <zephyr/zbus/zbus.h>
 LOG_MODULE_REGISTER(MODULE, CONFIG_MAIN_LOG_LEVEL);
 
+extern volatile bool socket_connected_signall;
+
 ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 
 ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
@@ -55,6 +57,10 @@ K_THREAD_STACK_DEFINE(button_msg_sub_thread_stack, CONFIG_BUTTON_MSG_SUB_STACK_S
 K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STACK_SIZE);
 
 static enum stream_state strm_state = STATE_PAUSED;
+
+/**********External Resources START**************/
+
+/**********External Resources END**************/
 
 #ifdef CONFIG_SYS_HEAP_LISTENER
 extern struct sys_heap _system_heap;
@@ -129,16 +135,14 @@ void socket_rx_handler(uint8_t *socket_rx_buf, size_t len)
 
 			switch (command) {
 			case AUDIO_START_CMD:
-				LOG_INF("Audio Start Command received\n");
-				LOG_INF("STATE_STREAMING");
+				LOG_INF("STATE_STREAMING Command received\n");
 				stream_state_set(STATE_STREAMING);
 				audio_system_encoder_start();
 				led_blink(LED_APP_1_BLUE);
 				break;
 			case AUDIO_STOP_CMD:
-				LOG_INF("Audio Stop Command received\n");
+				LOG_INF("STATE_PAUSED Command received\n");
 				audio_system_encoder_stop();
-				LOG_INF("STATE_PAUSED");
 				stream_state_set(STATE_PAUSED);
 				led_on(LED_APP_1_BLUE);
 				break;
@@ -188,35 +192,28 @@ static void button_msg_sub_thread(void)
 
 		switch (msg.button_pin) {
 		case BUTTON_PLAY_PAUSE:
-			if (strm_state == STATE_STREAMING) {
-				// ret = broadcast_source_stop(0);
-				// if (ret) {
-				// 	LOG_WRN("Failed to stop broadcaster: %d", ret);
-				// }
-				audio_system_encoder_stop();
-				LOG_INF("STATE_PAUSED");
-				stream_state_set(STATE_PAUSED);
-				ret = led_on(LED_APP_1_BLUE);
-				ERR_CHK(ret);
+			if (socket_connected_signall == true) {
+				if (strm_state == STATE_STREAMING) {
+					audio_system_encoder_stop();
+					LOG_INF("STATE_PAUSED");
+					stream_state_set(STATE_PAUSED);
+					ret = led_on(LED_APP_1_BLUE);
+					ERR_CHK(ret);
 
-			} else if (strm_state == STATE_PAUSED) {
-				// ret = broadcast_source_start(0, ext_adv);
-				// if (ret) {
-				// 	LOG_WRN("Failed to start broadcaster: %d", ret);
-				// }
+				} else if (strm_state == STATE_PAUSED) {
+					LOG_INF("STATE_STREAMING");
+					stream_state_set(STATE_STREAMING);
+					audio_system_encoder_start();
+					ret = led_blink(LED_APP_1_BLUE);
+					ERR_CHK(ret);
 
-				LOG_INF("STATE_STREAMING");
-				stream_state_set(STATE_STREAMING);
-				audio_system_encoder_start();
-				ret = led_blink(LED_APP_1_BLUE);
-				ERR_CHK(ret);
-
+				} else {
+					LOG_WRN("In invalid state: %d", strm_state);
+				}
 			} else {
-				LOG_WRN("In invalid state: %d", strm_state);
+				LOG_WRN("Please wait for socket client to connect.");
 			}
-
 			break;
-
 		case BUTTON_4:
 			if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
 				if (strm_state != STATE_STREAMING) {
@@ -331,9 +328,8 @@ static int zbus_subscribers_create(void)
 		return ret;
 	}
 
-	// ret = zbus_chan_add_obs(&sdu_ref_chan, &sdu_ref_msg_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add timestamp listener");
+	// ret = zbus_chan_add_obs(&sdu_ref_chan, &sdu_ref_msg_listen,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add timestamp listener");
 	// 	return ret;
 	// }
 
@@ -359,15 +355,13 @@ static int zbus_link_producers_observers(void)
 		return ret;
 	}
 
-	// ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add le_audio sub");
+	// ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add le_audio sub");
 	// 	return ret;
 	// }
 
-	// ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add bt_mgmt listener");
+	// ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add bt_mgmt listener");
 	// 	return ret;
 	// }
 

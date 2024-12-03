@@ -39,10 +39,10 @@ choice SOCKET_ROLE
 	default SOCKET_ROLE_SERVER
 
 config SOCKET_ROLE_SERVER
-	bool "Play as socket server to listen for incoming connections"
+	bool "Device works as socket server, listen for connection requests from client."
 
 config SOCKET_ROLE_CLIENT
-	bool "Play as socket client to connect to a server"
+	bool "Device works as socket client, connect to a socket server."
 
 endchoice # AUDIO_STREAM_ROL
 

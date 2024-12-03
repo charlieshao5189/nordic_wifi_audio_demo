@@ -13,7 +13,6 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 #include <zephyr/kernel.h>
 #include <zephyr/types.h>
 #include <zephyr/net/socket.h>
-/* Macro called upon a fatal error, reboots the device. */
 #include <zephyr/sys/reboot.h>
 #include <dk_buttons_and_leds.h>
 #include <zephyr/logging/log_ctrl.h>
@@ -45,19 +44,10 @@ int tcp_client_socket;
 int udp_socket;
 #endif
 struct sockaddr_in self_addr;
-bool socket_connected = false;
-
 char target_addr_str[32];
 struct sockaddr_in target_addr;
 socklen_t target_addr_len = sizeof(target_addr);
 
-#if defined(CONFIG_SOCKET_ROLE_CLIENT)
-static struct k_sem target_addr_set_sem;
-static bool target_addr_set = false; // Flag to indicate if the target address is set
-#endif                               // #if defined(CONFIG_SOCKET_ROLE_CLIENT)
-
-/* Define the semaphore net_connect_ready */
-struct k_sem net_connect_ready;
 enum wifi_modes wifi_mode = WIFI_STATION_MODE;
 
 static socket_receive_t socket_receive;
@@ -65,6 +55,12 @@ static socket_receive_t socket_receive;
 K_MSGQ_DEFINE(socket_recv_queue, sizeof(socket_receive), 1, 4);
 
 static net_util_socket_rx_callback_t socket_rx_cb = 0;
+
+#if defined(CONFIG_SOCKET_ROLE_CLIENT)
+volatile bool serveraddr_set_signall = false;
+#endif /*#if defined(CONFIG_SOCKET_ROLE_CLIENT)*/
+
+volatile bool socket_connected_signall = false;
 
 void socket_util_set_rx_callback(net_util_socket_rx_callback_t socket_rx_callback)
 {
@@ -75,31 +71,6 @@ void socket_util_set_rx_callback(net_util_socket_rx_callback_t socket_rx_callbac
 	while (k_msgq_get(&socket_recv_queue, &socket_receive, K_NO_WAIT) == 0) {
 		socket_rx_cb(socket_receive.buf, socket_receive.len);
 	}
-}
-
-uint8_t process_socket_rx_buffer(char *socket_rx_buf, char *command_buf)
-{
-	uint8_t command_length = 0;
-
-	// // Check if socket_rx_buf contains start code (0x55)
-	// if (socket_rx_buf[0] == 0x55)
-	// {
-	// 	// Find the end code (0xAA) and extract the command
-	// 	for (uint8_t i = 1; i < CAM_COMMAND_MAX_SIZE; i++)
-	// 	{
-	// 		if (socket_rx_buf[i] == 0xAA)
-	// 		{
-	// 			// Copy the command to command_buf
-	// 			for (uint8_t j = 1; j < i; j++)
-	// 			{
-	// 				command_buf[j - 1] = socket_rx_buf[j];
-	// 			}
-	// 			command_length = i - 1; // Length of the command
-	// 			break;
-	// 		}
-	// 	}
-	// }
-	return command_length;
 }
 
 static void socket_util_trigger_rx_callback_if_set()
@@ -161,12 +132,6 @@ void socket_util_thread(void)
 {
 	int ret;
 
-	k_sem_init(&net_connect_ready, 0, 1);
-
-#if defined(CONFIG_SOCKET_ROLE_CLIENT)
-	k_sem_init(&target_addr_set_sem, 0, 1);
-#endif // #if defined(CONFIG_SOCKET_ROLE_CLIENT)
-
 	if (dk_leds_init() != 0) {
 		LOG_ERR("Failed to initialize the LED library");
 	}
@@ -190,11 +155,13 @@ void socket_util_thread(void)
 	target_addr.sin_family = AF_INET;
 
 #if defined(CONFIG_SOCKET_ROLE_CLIENT)
-	LOG_INF("\r\n\r\n Play as socket client, set target server address with shell "
-		"command:socket set_target_addr <IP>:<Port>)\r\n");
-	k_sem_take(&target_addr_set_sem, K_FOREVER);
+	LOG_INF("\r\n\r\nDevice works as socket client, connect target socket server address with "
+		"shell command, for example:\r\nsocket set_target_addr 192.168.50.126:60010\r\n");
+	while (!serveraddr_set_signall) {
+		k_sleep(K_MSEC(100));
+	}
 #elif defined(CONFIG_SOCKET_ROLE_SERVER)
-	LOG_INF("\r\n\r\n Play as socket server, waiting for client connection...\r\n");
+	LOG_INF("\r\n\r\nDevice works as socket server, wait for socket client connection...\r\n");
 #endif // #if defined(CONFIG_SOCKET_ROLE_CLIENT)
 
 #if defined(CONFIG_SOCKET_TYPE_TCP)
@@ -294,12 +261,12 @@ void socket_util_thread(void)
 	while ((socket_receive.len = recvfrom(udp_socket, socket_receive.buf, BUFFER_MAX_SIZE, 0,
 					      (struct sockaddr *)&target_addr, &target_addr_len)) >
 	       0) {
-		if (socket_connected == false) {
+		if (socket_connected_signall == false) {
 			inet_ntop(target_addr.sin_family, &target_addr.sin_addr, target_addr_str,
 				  sizeof(target_addr_str));
 			LOG_INF("Connect socket to IP Address %s:%d\n", target_addr_str,
 				ntohs(target_addr.sin_port));
-			socket_connected = true;
+			socket_connected_signall = true;
 		}
 		socket_util_trigger_rx_callback_if_set();
 	}
@@ -310,26 +277,26 @@ void socket_util_thread(void)
 	}
 
 	close(udp_socket);
-	socket_connected = false;
+	socket_connected_signall = false;
 
 #endif
 }
 
-// K_THREAD_STACK_DEFINE(socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE);
-// static struct k_thread socket_util_thread_data;
-// static k_tid_t socket_util_thread_id;
+/* K_THREAD_STACK_DEFINE(socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE);
+static struct k_thread socket_util_thread_data;
+static k_tid_t socket_util_thread_id;
 
-// int socket_util_init(void){
-//         int ret;
-//         /* Start thread to handle events from socket connection */
-//         socket_util_thread_id = k_thread_create(&socket_util_thread_data,
-//         socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE,
-//                                 (k_thread_entry_t)socket_util_thread,  NULL, NULL, NULL,
-// 			K_PRIO_PREEMPT(CONFIG_SOCKET_UTIL_THREAD_PRIO), 0, K_NO_WAIT);
+int socket_util_init(void){
+	int ret;
 
-//         ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
-// 	return ret;
-// }
+	socket_util_thread_id = k_thread_create(&socket_util_thread_data,
+	socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE,
+				(k_thread_entry_t)socket_util_thread,  NULL, NULL, NULL,
+			K_PRIO_PREEMPT(CONFIG_SOCKET_UTIL_THREAD_PRIO), 0, K_NO_WAIT);
+
+	ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
+	return ret;
+} */
 
 #if defined(CONFIG_SOCKET_ROLE_CLIENT)
 
@@ -372,10 +339,8 @@ static int cmd_set_target_address(const struct shell *shell, size_t argc, const 
 	}
 
 	shell_print(shell, "Target address set to: %s:%d", ip_str, port);
-	target_addr_set = true;           // Set the flag to true
-	k_sem_give(&target_addr_set_sem); // Signal that the target address is set
-	k_free(target_addr_str);          // Free memory afterwards
-
+	serveraddr_set_signall = true;
+	k_free(target_addr_str);
 	return 0;
 }
 

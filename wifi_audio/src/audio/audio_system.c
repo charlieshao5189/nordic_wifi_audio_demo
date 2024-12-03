@@ -197,12 +197,13 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 
 void audio_system_encoder_start(void)
 {
-	LOG_DBG("Encoder started");
+	LOG_INF("Encoder started");
 	k_poll_signal_raise(&encoder_sig, 0);
 }
 
 void audio_system_encoder_stop(void)
 {
+	LOG_INF("Encoder stoped");
 	k_poll_signal_reset(&encoder_sig);
 }
 
