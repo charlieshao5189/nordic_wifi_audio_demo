@@ -48,12 +48,12 @@ west flash --erase -d build_headset
 Gateway:
 
 ```bash
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE=overlay-wifi-sta-static.conf
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE=overlay-wifi-sta-static.conf
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-gateway.conf"
+west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-gateway.conf"
 west flash --erase -d build_static_gateway
 
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf"
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf"
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf;overlay-audio-gateway.conf"
+west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf;overlay-audio-gateway.conf"
 west flash --erase -d build_static_opus_gateway
 ```
 Headset:
@@ -73,7 +73,7 @@ west flash --erase -d build_static_opus_headset
 
 Example to build audio gateway/headset with both Opus and TCP socket enabled:
 ```bash
-west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_tcp_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf;overlay-tcp.conf"
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_tcp_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf;overlay-tcp.conf;overlay-audio-gateway.conf"
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_tcp_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf;overlay-opus.conf;overlay-tcp.conf"
 ```
 
