@@ -196,6 +196,19 @@ static void do_mdns_query(void){
 
 			inet_ntop(AF_INET, &addr4->sin_addr, addr_str, sizeof(addr_str));
 			LOG_INF("IPv4 address: %s", addr_str);
+
+                        target_addr.sin_family = AF_INET;
+                        target_addr.sin_port = htons(socket_port); // Convert port to network byte order
+                        target_addr.sin_addr = addr4->sin_addr;
+
+                        if(target_addr.sin_addr.s_addr == 0){
+                                LOG_ERR("Invalid IP address");
+                                continue;
+                        }
+                        LOG_INF("Target address set to: %s:%d", addr_str, socket_port);
+                        target_addr_set = true; // Set the flag to true
+                        k_sem_give(&target_addr_set_sem); // Signal that the target address is set
+
 		} else if (addr->ai_family == AF_INET6) {
 			struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr->ai_addr;
 
@@ -203,6 +216,34 @@ static void do_mdns_query(void){
 			LOG_INF("IPv6 address: %s", addr_str);
 		}
 	}
+
+        // char ip_str[INET_ADDRSTRLEN];
+        // int port;
+
+        // // Split into IP address and port
+        // if (sscanf(target_addr_str, "%[^:]:%d", ip_str, &port) != 2) {
+        //         shell_print(shell, "Invalid format. Expected <IP>:<Port>");
+        //         k_free(target_addr_str); // Free the allocated memory
+        //         return -1;
+        // }
+
+        // // Set up the sockaddr_in structure
+        // target_addr.sin_family = AF_INET;
+        // target_addr.sin_port = htons(port); // Convert port to network byte order
+
+        // if (inet_pton(AF_INET, ip_str, &(target_addr.sin_addr)) <= 0) {
+        //         shell_print(shell, "Invalid IP address format: %s", ip_str);
+        //         k_free(target_addr_str);
+        //         return -1;
+        // }
+
+        // shell_print(shell, "Target address set to: %s:%d", ip_str, port);
+        // target_addr_set = true; // Set the flag to true
+        // k_sem_give(&target_addr_set_sem); // Signal that the target address is set
+        // k_free(target_addr_str); // Free memory afterwards
+
+
+
 }
 #endif /* CONFIG_MDNS_RESOLVER */
 
