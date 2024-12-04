@@ -9,7 +9,7 @@
 
 #include <zephyr/bluetooth/audio/audio.h>
 
-#define ZBUS_READ_TIMEOUT_MS	K_MSEC(100)
+#define ZBUS_READ_TIMEOUT_MS    K_MSEC(100)
 #define ZBUS_ADD_OBS_TIMEOUT_MS K_MSEC(200)
 
 /***** Messages for zbus ******/

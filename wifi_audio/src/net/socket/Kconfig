@@ -1,0 +1,22 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+#----------------------------------------------------------------------------#
+
+menu "mDNS settings"
+  config MDNS_QUERY_NAME
+      string "mDNS query name"
+      default "zephyr"
+      help
+        Set the mDNS query name
+
+  config MDNS_QUERY_ATTEMPTS
+      int "mDNS query attempts"
+      default 5
+      help
+        Set the number of mDNS query attempts
+
+endmenu # mDNS settings

@@ -11,8 +11,8 @@
 #include "channel_assignment.h"
 
 #if (CONFIG_SW_CODEC_LC3)
-#define LC3_MAX_FRAME_SIZE_MS	10
-#define LC3_ENC_MONO_FRAME_SIZE (CONFIG_LC3_BITRATE_MAX * LC3_MAX_FRAME_SIZE_MS / (8 * 1000)) 
+#define LC3_MAX_FRAME_SIZE_MS   10
+#define LC3_ENC_MONO_FRAME_SIZE (CONFIG_LC3_BITRATE_MAX * LC3_MAX_FRAME_SIZE_MS / (8 * 1000))
 
 #define LC3_PCM_NUM_BYTES_MONO                                                                     \
 	(CONFIG_AUDIO_SAMPLE_RATE_HZ * CONFIG_AUDIO_BIT_DEPTH_OCTETS * LC3_MAX_FRAME_SIZE_MS / 1000)
@@ -20,38 +20,39 @@
 #define LC3_DEC_TIME_US 1500
 #else
 #define LC3_ENC_MONO_FRAME_SIZE 0
-#define LC3_PCM_NUM_BYTES_MONO	0
-#define LC3_ENC_TIME_US		0
-#define LC3_DEC_TIME_US		0
+#define LC3_PCM_NUM_BYTES_MONO  0
+#define LC3_ENC_TIME_US         0
+#define LC3_DEC_TIME_US         0
 #endif /* CONFIG_SW_CODEC_LC3 */
 
 #if (CONFIG_SW_CODEC_OPUS)
-#define OPUS_MAX_FRAME_SIZE_MS	10
-#define CONFIG_OPUS_BITRATE_MAX 16000
-#define OPUS_ENC_MONO_FRAME_SIZE (CONFIG_OPUS_BITRATE_MAX * OPUS_MAX_FRAME_SIZE_MS / (8 * 1000)) 
+#define OPUS_MAX_FRAME_SIZE_MS   10
+#define CONFIG_OPUS_BITRATE_MAX  16000
+#define OPUS_ENC_MONO_FRAME_SIZE (CONFIG_OPUS_BITRATE_MAX * OPUS_MAX_FRAME_SIZE_MS / (8 * 1000))
 
-#define OPUS_PCM_NUM_BYTES_MONO                                                                     \
-	(CONFIG_AUDIO_SAMPLE_RATE_HZ * CONFIG_AUDIO_BIT_DEPTH_OCTETS * OPUS_MAX_FRAME_SIZE_MS / 1000)
+#define OPUS_PCM_NUM_BYTES_MONO                                                                    \
+	(CONFIG_AUDIO_SAMPLE_RATE_HZ * CONFIG_AUDIO_BIT_DEPTH_OCTETS * OPUS_MAX_FRAME_SIZE_MS /    \
+	 1000)
 #define OPUS_ENC_TIME_US 3000
 #define OPUS_DEC_TIME_US 1500
 #else
 #define OPUS_ENC_MONO_FRAME_SIZE 0
-#define OPUS_PCM_NUM_BYTES_MONO	0
-#define OPUS_ENC_TIME_US		0
-#define OPUS_DEC_TIME_US		0
+#define OPUS_PCM_NUM_BYTES_MONO  0
+#define OPUS_ENC_TIME_US         0
+#define OPUS_DEC_TIME_US         0
 #endif /* CONFIG_SW_CODEC_OPUS */
 
 /* Max will be used when multiple codecs are supported */
-#define ENC_MAX_FRAME_SIZE   MAX(OPUS_ENC_MONO_FRAME_SIZE, 0) //20 Bytes
-#define ENC_TIME_US	     MAX(OPUS_ENC_TIME_US, 0)
-#define DEC_TIME_US	     MAX(OPUS_DEC_TIME_US, 0) 
-#define PCM_NUM_BYTES_MONO   MAX(OPUS_PCM_NUM_BYTES_MONO, 0) //960 Bytes
-#define PCM_NUM_BYTES_STEREO (PCM_NUM_BYTES_MONO * 2) //1920 Bytes
+#define ENC_MAX_FRAME_SIZE   MAX(OPUS_ENC_MONO_FRAME_SIZE, 0) // 20 Bytes
+#define ENC_TIME_US          MAX(OPUS_ENC_TIME_US, 0)
+#define DEC_TIME_US          MAX(OPUS_DEC_TIME_US, 0)
+#define PCM_NUM_BYTES_MONO   MAX(OPUS_PCM_NUM_BYTES_MONO, 0) // 960 Bytes
+#define PCM_NUM_BYTES_STEREO (PCM_NUM_BYTES_MONO * 2)        // 1920 Bytes
 
 enum sw_codec_select {
 	SW_CODEC_NONE,
 	SW_CODEC_LC3, /* Low Complexity Communication Codec */
-        SW_CODEC_OPUS,
+	SW_CODEC_OPUS,
 };
 
 enum sw_codec_channel_mode {
@@ -71,8 +72,8 @@ struct sw_codec_encoder {
 struct sw_codec_decoder {
 	bool enabled;
 	enum sw_codec_channel_mode channel_mode; /* Mono or stereo. */
-	uint8_t num_ch;				 /* Number of decoder channels. */
-	enum audio_channel audio_ch;		 /* Used to choose which channel to use. */
+	uint8_t num_ch;                          /* Number of decoder channels. */
+	enum audio_channel audio_ch;             /* Used to choose which channel to use. */
 	uint32_t sample_rate_hz;
 };
 
@@ -80,10 +81,10 @@ struct sw_codec_decoder {
  * @brief  Sw_codec configuration structure.
  */
 struct sw_codec_config {
-	enum sw_codec_select sw_codec;	 /* sw_codec to be used, e.g. LC3, etc. */
+	enum sw_codec_select sw_codec;   /* sw_codec to be used, e.g. LC3, etc. */
 	struct sw_codec_decoder decoder; /* Struct containing settings for decoder. */
 	struct sw_codec_encoder encoder; /* Struct containing settings for encoder. */
-	bool initialized;		 /* Status of codec. */
+	bool initialized;                /* Status of codec. */
 };
 
 /**

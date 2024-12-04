@@ -44,7 +44,7 @@ int fw_info_app_print(void)
 		//	return ret;
 		//}
 		/* NOTE: The string below is used by the Nordic CI system */
-		LOG_INF(COLOR_CYAN "HEADSET LEFT device" COLOR_RESET);
+		LOG_INF(COLOR_CYAN "Compiled as HEADSET LEFT device" COLOR_RESET);
 	} else if (channel == AUDIO_CH_R) {
 		// ret = log_set_tag(CH_R_TAG);
 		//if (ret) {

@@ -21,9 +21,8 @@ static bool wifi_ready_status;
 
 #include <dk_buttons_and_leds.h>
 
-/**********External Resources START**************/
-extern struct k_sem net_connect_ready;
-/**********External Resources END**************/
+static volatile bool wifi_connected_signal = false;
+
 int wifi_softap_mode_ready(void);
 
 static struct net_mgmt_event_callback wifi_sap_mgmt_cb;
@@ -55,11 +54,8 @@ static void wifi_ap_stations_unlocked(void)
 
 		LOG_INF("Station %zu:", id++);
 		LOG_INF("==========");
-		LOG_INF("MAC: %s",
-			net_sprint_ll_addr_buf(sta->mac,
-					       WIFI_MAC_ADDR_LEN,
-					       mac_string_buf,
-					       sizeof(mac_string_buf)));
+		LOG_INF("MAC: %s", net_sprint_ll_addr_buf(sta->mac, WIFI_MAC_ADDR_LEN,
+							  mac_string_buf, sizeof(mac_string_buf)));
 		LOG_INF("Link mode: %s", wifi_link_mode_txt(sta->link_mode));
 		LOG_INF("TWT: %s", sta->twt_capable ? "Supported" : "Not supported");
 	}
@@ -71,8 +67,7 @@ static void wifi_ap_stations_unlocked(void)
 
 static void handle_wifi_ap_enable_result(struct net_mgmt_event_callback *cb)
 {
-	const struct wifi_status *status =
-		(const struct wifi_status *)cb->info;
+	const struct wifi_status *status = (const struct wifi_status *)cb->info;
 
 	if (status->status) {
 		LOG_ERR("AP enable request failed (%d)", status->status);
@@ -83,14 +78,13 @@ static void handle_wifi_ap_enable_result(struct net_mgmt_event_callback *cb)
 
 static void handle_wifi_ap_sta_connected(struct net_mgmt_event_callback *cb)
 {
-	const struct wifi_ap_sta_info *sta_info =
-		(const struct wifi_ap_sta_info *)cb->info;
+	const struct wifi_ap_sta_info *sta_info = (const struct wifi_ap_sta_info *)cb->info;
 	uint8_t mac_string_buf[sizeof("xx:xx:xx:xx:xx:xx")];
 	int i;
 
 	LOG_INF("Station connected: %s",
-		net_sprint_ll_addr_buf(sta_info->mac, WIFI_MAC_ADDR_LEN,
-				       mac_string_buf, sizeof(mac_string_buf)));
+		net_sprint_ll_addr_buf(sta_info->mac, WIFI_MAC_ADDR_LEN, mac_string_buf,
+				       sizeof(mac_string_buf)));
 
 	k_mutex_lock(&wifi_ap_sta_list_lock, K_FOREVER);
 	for (i = 0; i < CONFIG_SOFTAP_MAX_STATIONS; i++) {
@@ -109,21 +103,20 @@ static void handle_wifi_ap_sta_connected(struct net_mgmt_event_callback *cb)
 	wifi_ap_stations_unlocked();
 	k_mutex_unlock(&wifi_ap_sta_list_lock);
 	dk_set_led_on(DK_LED1);
-        LOG_INF("\r\n\r\nWiFi is ready on nRF5340 Audio DK + nRF7002EK. Try to connect the socket(udp by default)from address 192.168.1.1:60010.\r\n");
-        k_sem_give(&net_connect_ready);
-
+	LOG_INF("\r\n\r\nWiFi is ready on nRF5340 Audio DK + nRF7002EK. Try to connect the "
+		"socket(udp by default)from address 192.168.1.1:60010.\r\n");
+	wifi_connected_signal = true;
 }
 
 static void handle_wifi_ap_sta_disconnected(struct net_mgmt_event_callback *cb)
 {
-	const struct wifi_ap_sta_info *sta_info =
-		(const struct wifi_ap_sta_info *)cb->info;
+	const struct wifi_ap_sta_info *sta_info = (const struct wifi_ap_sta_info *)cb->info;
 	uint8_t mac_string_buf[sizeof("xx:xx:xx:xx:xx:xx")];
 	int i;
 
 	LOG_INF("Station disconnected: %s",
-		net_sprint_ll_addr_buf(sta_info->mac, WIFI_MAC_ADDR_LEN,
-				       mac_string_buf, sizeof(mac_string_buf)));
+		net_sprint_ll_addr_buf(sta_info->mac, WIFI_MAC_ADDR_LEN, mac_string_buf,
+				       sizeof(mac_string_buf)));
 
 	k_mutex_lock(&wifi_ap_sta_list_lock, K_FOREVER);
 	for (i = 0; i < CONFIG_SOFTAP_MAX_STATIONS; i++) {
@@ -131,8 +124,7 @@ static void handle_wifi_ap_sta_disconnected(struct net_mgmt_event_callback *cb)
 			continue;
 		}
 
-		if (!memcmp(sta_list[i].sta_info.mac, sta_info->mac,
-			    WIFI_MAC_ADDR_LEN)) {
+		if (!memcmp(sta_list[i].sta_info.mac, sta_info->mac, WIFI_MAC_ADDR_LEN)) {
 			sta_list[i].valid = false;
 			break;
 		}
@@ -145,14 +137,14 @@ static void handle_wifi_ap_sta_disconnected(struct net_mgmt_event_callback *cb)
 	wifi_ap_stations_unlocked();
 	k_mutex_unlock(&wifi_ap_sta_list_lock);
 	dk_set_led_off(DK_LED1);
-	k_sem_reset(&net_connect_ready);
+	wifi_connected_signal = false;
 	LOG_INF("\r\nWi-Fi is disconnected. Ready for new Wi-Fi connection.\r\n");
-	LOG_INF("\r\n\r\nRunning on WiFi SoftAP mode.\r\nPlease connect PC WiFi network to SSID 'WiFi_Audio_AP' and password 'Auido@WiFi'.\r\n");
-
+	LOG_INF("\r\n\r\nRunning on WiFi SoftAP mode.\r\nPlease connect PC WiFi network to SSID "
+		"'WiFi_Audio_AP' and password 'Auido@WiFi'.\r\n");
 }
 
-static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb,
-				    uint32_t mgmt_event, struct net_if *iface)
+static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
+				    struct net_if *iface)
 {
 	switch (mgmt_event) {
 	case NET_EVENT_WIFI_AP_ENABLE_RESULT:
@@ -208,7 +200,7 @@ static int __wifi_args_to_params(struct wifi_connect_req_params *params)
 static void cmd_wifi_status(void)
 {
 	struct net_if *iface;
-	struct wifi_iface_status status = { 0 };
+	struct wifi_iface_status status = {0};
 
 	iface = net_if_get_first_wifi();
 	if (!iface) {
@@ -217,7 +209,7 @@ static void cmd_wifi_status(void)
 	}
 
 	if (net_mgmt(NET_REQUEST_WIFI_IFACE_STATUS, iface, &status,
-				sizeof(struct wifi_iface_status))) {
+		     sizeof(struct wifi_iface_status))) {
 		LOG_ERR("Status request failed");
 		return;
 	}
@@ -233,8 +225,7 @@ static void cmd_wifi_status(void)
 		LOG_INF("Link Mode: %s", wifi_link_mode_txt(status.link_mode));
 		LOG_INF("SSID: %.32s", status.ssid);
 		LOG_INF("BSSID: %s",
-			net_sprint_ll_addr_buf(status.bssid,
-					       WIFI_MAC_ADDR_LEN, mac_string_buf,
+			net_sprint_ll_addr_buf(status.bssid, WIFI_MAC_ADDR_LEN, mac_string_buf,
 					       sizeof(mac_string_buf)));
 		LOG_INF("Band: %s", wifi_band_txt(status.band));
 		LOG_INF("Channel: %d", status.channel);
@@ -242,8 +233,7 @@ static void cmd_wifi_status(void)
 		LOG_INF("MFP: %s", wifi_mfp_txt(status.mfp));
 		LOG_INF("Beacon Interval: %d", status.beacon_interval);
 		LOG_INF("DTIM: %d", status.dtim_period);
-		LOG_INF("TWT: %s",
-			status.twt_capable ? "Supported" : "Not supported");
+		LOG_INF("TWT: %s", status.twt_capable ? "Supported" : "Not supported");
 	}
 }
 
@@ -264,8 +254,7 @@ static int wifi_softap_enable(void)
 	}
 
 	if (!wifi_utils_validate_chan(cnx_params.band, cnx_params.channel)) {
-		LOG_ERR("Invalid channel %d in %d band",
-			cnx_params.channel, cnx_params.band);
+		LOG_ERR("Invalid channel %d in %d band", cnx_params.channel, cnx_params.band);
 		goto out;
 	}
 
@@ -294,11 +283,9 @@ static int wifi_set_reg_domain(void)
 	}
 
 	regd.oper = WIFI_MGMT_SET;
-	strncpy(regd.country_code, CONFIG_SOFTAP_REG_DOMAIN,
-		(WIFI_COUNTRY_CODE_LEN + 1));
+	strncpy(regd.country_code, CONFIG_SOFTAP_REG_DOMAIN, (WIFI_COUNTRY_CODE_LEN + 1));
 
-	ret = net_mgmt(NET_REQUEST_WIFI_REG_DOMAIN, iface,
-		       &regd, sizeof(regd));
+	ret = net_mgmt(NET_REQUEST_WIFI_REG_DOMAIN, iface, &regd, sizeof(regd));
 	if (ret) {
 		LOG_ERR("Cannot %s Regulatory domain: %d", "SET", ret);
 	} else {
@@ -340,13 +327,13 @@ out:
 	return ret;
 }
 
-#define CHECK_RET(func, ...) \
-	do { \
-		ret = func(__VA_ARGS__); \
-		if (ret) { \
-			LOG_ERR("Failed to configure %s", #func); \
-			return -1; \
-		} \
+#define CHECK_RET(func, ...)                                                                       \
+	do {                                                                                       \
+		ret = func(__VA_ARGS__);                                                           \
+		if (ret) {                                                                         \
+			LOG_ERR("Failed to configure %s", #func);                                  \
+			return -1;                                                                 \
+		}                                                                                  \
 	} while (0)
 
 static int start_app(void)
@@ -361,8 +348,14 @@ static int start_app(void)
 
 	cmd_wifi_status();
 
-        LOG_INF("\r\n\r\nRunning on WiFi SoftAP mode.\r\nPlease connect PC WiFi network to SSID 'WiFi_Audio_AP' and password 'Auido@WiFi'.\r\n");
-        k_sem_take(&net_connect_ready, K_FOREVER);
+	LOG_INF("\r\n\r\nRunning on WiFi SoftAP mode.\r\nPlease connect PC WiFi network to SSID "
+		"'WiFi_Audio_AP' and password 'Auido@WiFi'.\r\n");
+
+	while (!wifi_connected_signal) {
+		k_sleep(K_MSEC(100));
+	}
+
+	LOG_INF("Wi-Fi is ready, proceeding with the application.");
 	return 0;
 }
 
@@ -391,8 +384,7 @@ static int stop_dhcp_server(void)
 static void start_wifi_thread(void);
 #define THREAD_PRIORITY K_PRIO_COOP(CONFIG_NUM_COOP_PRIORITIES - 1)
 K_THREAD_DEFINE(start_wifi_ap_thread_id, CONFIG_SOFTAP_START_WIFI_THREAD_STACK_SIZE,
-		start_wifi_thread, NULL, NULL, NULL,
-		THREAD_PRIORITY, 0, -1);
+		start_wifi_thread, NULL, NULL, NULL, THREAD_PRIORITY, 0, -1);
 
 static void start_wifi_thread(void)
 {
@@ -431,7 +423,6 @@ static void wifi_ready_cb(bool wifi_ready)
 	k_sem_give(&wifi_ready_state_changed_sem);
 }
 
-
 static int register_wifi_ready(void)
 {
 	int ret = 0;
@@ -455,25 +446,22 @@ static int register_wifi_ready(void)
 	return ret;
 }
 
-
 static void net_mgmt_callback_init(void)
 {
-	net_mgmt_init_event_callback(&wifi_sap_mgmt_cb,
-				     wifi_mgmt_event_handler,
+	net_mgmt_init_event_callback(&wifi_sap_mgmt_cb, wifi_mgmt_event_handler,
 				     WIFI_SAP_MGMT_EVENTS);
 
 	net_mgmt_add_event_callback(&wifi_sap_mgmt_cb);
 }
 
-
 int wifi_softap_mode_ready(void)
 {
 	int ret = 0;
 
-        dhcp_server_configured = false;
+	dhcp_server_configured = false;
 
-        net_mgmt_callback_init();
-        ret = register_wifi_ready();
+	net_mgmt_callback_init();
+	ret = register_wifi_ready();
 	if (ret) {
 		return ret;
 	}

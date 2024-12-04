@@ -27,7 +27,7 @@ ZBUS_CHAN_DEFINE(button_chan, struct button_msg, NULL, NULL, ZBUS_OBSERVERS_EMPT
 
 /* How many buttons does the module support. Increase at memory cost */
 #define BUTTONS_MAX 5
-#define BASE_10	    10
+#define BASE_10     10
 
 /* Only allow one button msg at a time, as a mean of debounce */
 K_MSGQ_DEFINE(button_queue, sizeof(struct button_msg), 1, 4);

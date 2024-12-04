@@ -23,7 +23,7 @@ static const struct adc_dt_spec adc = ADC_DT_SPEC_GET(BOARD_ID);
 static const struct gpio_dt_spec power_gpios = GPIO_DT_SPEC_GET(BOARD_ID, power_gpios);
 
 /* We allow the ADC register value to deviate by N points in either direction */
-#define BOARD_VERSION_TOLERANCE	  70
+#define BOARD_VERSION_TOLERANCE   70
 #define VOLTAGE_STABILIZE_TIME_US 5
 
 static int16_t sample_buffer;

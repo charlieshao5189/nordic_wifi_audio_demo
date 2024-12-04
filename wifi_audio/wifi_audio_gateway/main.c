@@ -33,6 +33,8 @@
 #include <zephyr/zbus/zbus.h>
 LOG_MODULE_REGISTER(MODULE, CONFIG_MAIN_LOG_LEVEL);
 
+extern volatile bool socket_connected_signall;
+
 ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 
 ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
@@ -56,67 +58,52 @@ K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STA
 
 static enum stream_state strm_state = STATE_PAUSED;
 
-#define HEAP_LISTENER
-#ifdef HEAP_LISTENER
+/**********External Resources START**************/
+
+/**********External Resources END**************/
+
+#ifdef CONFIG_SYS_HEAP_LISTENER
 extern struct sys_heap _system_heap;
-struct sys_memory_stats stats;
+struct sys_memory_stats system_heap_stats;
 uint32_t system_heap_free = 0;
 uint32_t system_heap_used = 0;
 uint32_t system_heap_max_used = 0;
 
-
-extern struct sys_heap z_malloc_heap;// Need to delete static declaration when defining z_malloc_heap in zephyr/lib/libc/common/source/stdlib/malloc.c
-struct sys_memory_stats stats_libc;
-uint32_t stdlibc_heap_free = 0;
-uint32_t stdlibc_heap_used = 0;
-uint32_t stdlibc_heap_max_used = 0;
-
-
-void on_heap_alloc(uintptr_t heap_id, void *mem, size_t bytes)
+void on_system_heap_alloc(uintptr_t heap_id, void *mem, size_t bytes)
 {
-        if(heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
-                sys_heap_runtime_stats_get((struct sys_heap *)&_system_heap.heap, &stats);
-                system_heap_used = (uint32_t)stats.allocated_bytes;
-                system_heap_max_used = (uint32_t)stats.max_allocated_bytes;
-                system_heap_free = (uint32_t)stats.free_bytes;
-                LOG_INF("SYS ALLOC %u. Heap state:free %u, used %u, max used %u", bytes,system_heap_free, system_heap_used, system_heap_max_used);
-        } else if(heap_id == HEAP_ID_FROM_POINTER(&z_malloc_heap)) {
-                sys_heap_runtime_stats_get((struct sys_heap *)&z_malloc_heap.heap, &stats_libc);
-                stdlibc_heap_used = (uint32_t)stats_libc.allocated_bytes;
-                stdlibc_heap_max_used = (uint32_t)stats_libc.max_allocated_bytes;
-                stdlibc_heap_free = (uint32_t)stats_libc.free_bytes;
-                LOG_INF("LIBC ALLOC %u. Heap state: free %u, used %u, max used %u", bytes,stdlibc_heap_free, stdlibc_heap_used, stdlibc_heap_max_used);
-        }
+	if (heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
+		sys_heap_runtime_stats_get((struct sys_heap *)&_system_heap.heap,
+					   &system_heap_stats);
+		system_heap_used = (uint32_t)system_heap_stats.allocated_bytes;
+		system_heap_max_used = (uint32_t)system_heap_stats.max_allocated_bytes;
+		system_heap_free = (uint32_t)system_heap_stats.free_bytes;
+		LOG_INF("system_heap ALLOC %zu. Heap state: allocated %zu, free %zu, max allocated "
+			"%zu, heap size %u.\n",
+			bytes, system_heap_free, system_heap_used, system_heap_max_used,
+			K_HEAP_MEM_POOL_SIZE);
+	}
 }
 
-void on_sys_heap_free(uintptr_t heap_id, void *mem, size_t bytes)
+void on_system_heap_free(uintptr_t heap_id, void *mem, size_t bytes)
 {
-        if(heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
-                sys_heap_runtime_stats_get((struct sys_heap *)&_system_heap.heap, &stats);
-                system_heap_used = (uint32_t)stats.allocated_bytes;
-                system_heap_max_used = (uint32_t)stats.max_allocated_bytes;
-                system_heap_free = (uint32_t)stats.free_bytes;
-                LOG_INF("SYS FREE %u. Heap state: free %u, used %u, max used %u", bytes,system_heap_free, system_heap_used, system_heap_max_used);
-        } else if(heap_id == HEAP_ID_FROM_POINTER(&z_malloc_heap)) {
-                sys_heap_runtime_stats_get((struct sys_heap *)&z_malloc_heap.heap, &stats_libc);
-                stdlibc_heap_used = (uint32_t)stats_libc.allocated_bytes;
-                stdlibc_heap_max_used = (uint32_t)stats_libc.max_allocated_bytes;
-                stdlibc_heap_free = (uint32_t)stats_libc.free_bytes;
-                LOG_INF("LIBC FREE %u. Heap state: free %u, used %u, max used %u", bytes,stdlibc_heap_free, stdlibc_heap_used, stdlibc_heap_max_used);
-        }
+	if (heap_id == HEAP_ID_FROM_POINTER(&_system_heap)) {
+		sys_heap_runtime_stats_get((struct sys_heap *)&_system_heap.heap,
+					   &system_heap_stats);
+		system_heap_used = (uint32_t)system_heap_stats.allocated_bytes;
+		system_heap_max_used = (uint32_t)system_heap_stats.max_allocated_bytes;
+		system_heap_free = (uint32_t)system_heap_stats.free_bytes;
+		LOG_INF("system_heap ALLOC %zu. Heap state: allocated %zu, free %zu, max allocated "
+			"%zu, heap size %u.\n",
+			bytes, system_heap_free, system_heap_used, system_heap_max_used,
+			K_HEAP_MEM_POOL_SIZE);
+	}
 }
 
-#if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
+HEAP_LISTENER_ALLOC_DEFINE(system_heap_listener_alloc, HEAP_ID_FROM_POINTER(&_system_heap),
+			   on_system_heap_alloc);
+HEAP_LISTENER_FREE_DEFINE(system_heap_listener_free, HEAP_ID_FROM_POINTER(&_system_heap),
+			  on_system_heap_free);
 
-HEAP_LISTENER_ALLOC_DEFINE(sys_heap_listener_alloc, HEAP_ID_FROM_POINTER(&_system_heap),
-			   on_heap_alloc);
-HEAP_LISTENER_FREE_DEFINE(sys_heap_listener_free, HEAP_ID_FROM_POINTER(&_system_heap), on_sys_heap_free);
-
-HEAP_LISTENER_ALLOC_DEFINE(stdlibc_heap_listener_alloc, HEAP_ID_FROM_POINTER(&z_malloc_heap),
-			   on_heap_alloc);
-HEAP_LISTENER_FREE_DEFINE(stdlibc_heap_listener_free, HEAP_ID_FROM_POINTER(&z_malloc_heap), on_sys_heap_free);
-
-#endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
 #endif /* #ifdef HEAP_LISTENER */
 
 /* Function for handling all stream state changes */
@@ -130,51 +117,51 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
-void socket_rx_handler(uint8_t *socket_rx_buf, size_t len){
-    if (len < 5) {
-        // Not enough data for start and end sequence
-        LOG_INF("Received buffer too short\n");
-        return;
-    }
+void socket_rx_handler(uint8_t *socket_rx_buf, size_t len)
+{
+	if (len < 5) {
+		// Not enough data for start and end sequence
+		LOG_INF("Received buffer too short\n");
+		return;
+	}
 
-    // Check if it starts with 0xFF 0xAA
-    if (socket_rx_buf[0] == START_SEQUENCE_1 && socket_rx_buf[1] == START_SEQUENCE_2 && socket_rx_buf[2] == SEND_CMD_SIGN ){
-        // Check if it ends with 0xFF 0xBB
-        if (socket_rx_buf[len - 2] == END_SEQUENCE_1 && socket_rx_buf[len - 1] == END_SEQUENCE_2 ){
-            uint8_t command = socket_rx_buf[3];  // Command byte (third byte)
-            
-            switch (command) {
-                case AUDIO_START_CMD:
-                        LOG_INF("Audio Start Command received\n");
-                        LOG_INF("STATE_STREAMING");
-                        stream_state_set(STATE_STREAMING);
-                        audio_system_encoder_start();
-                        led_blink(LED_APP_1_BLUE);
-                        break;
-                case AUDIO_STOP_CMD:
-                        LOG_INF("Audio Stop Command received\n");
-                        audio_system_encoder_stop();
-                        LOG_INF("STATE_PAUSED");
-                        stream_state_set(STATE_PAUSED);
-                        led_on(LED_APP_1_BLUE);
-                        break;
-                default:
-                        LOG_INF("Unknown command received: 0x%02X\n", command);
-                        break;
-            }
-        } else {
-            LOG_INF("Invalid end sequence\n");
-        }
-    } else {
-        LOG_INF("Invalid start sequence\n");
-    }
+	// Check if it starts with 0xFF 0xAA
+	if (socket_rx_buf[0] == START_SEQUENCE_1 && socket_rx_buf[1] == START_SEQUENCE_2 &&
+	    socket_rx_buf[2] == SEND_CMD_SIGN) {
+		// Check if it ends with 0xFF 0xBB
+		if (socket_rx_buf[len - 2] == END_SEQUENCE_1 &&
+		    socket_rx_buf[len - 1] == END_SEQUENCE_2) {
+			uint8_t command = socket_rx_buf[3]; // Command byte (third byte)
+
+			switch (command) {
+			case AUDIO_START_CMD:
+				LOG_INF("STATE_STREAMING Command received\n");
+				stream_state_set(STATE_STREAMING);
+				audio_system_encoder_start();
+				led_blink(LED_APP_1_BLUE);
+				break;
+			case AUDIO_STOP_CMD:
+				LOG_INF("STATE_PAUSED Command received\n");
+				audio_system_encoder_stop();
+				stream_state_set(STATE_PAUSED);
+				led_on(LED_APP_1_BLUE);
+				break;
+			default:
+				LOG_INF("Unknown command received: 0x%02X\n", command);
+				break;
+			}
+		} else {
+			LOG_INF("Invalid end sequence\n");
+		}
+	} else {
+		LOG_INF("Invalid start sequence\n");
+	}
 }
-
 
 void streamctrl_send(void const *const data, size_t size)
 {
 	if (strm_state == STATE_STREAMING) {
-                socket_util_tx_data((uint8_t *)data, size);
+		socket_util_tx_data((uint8_t *)data, size);
 	}
 }
 
@@ -205,35 +192,28 @@ static void button_msg_sub_thread(void)
 
 		switch (msg.button_pin) {
 		case BUTTON_PLAY_PAUSE:
-			if (strm_state == STATE_STREAMING) {
-				// ret = broadcast_source_stop(0);
-				// if (ret) {
-				// 	LOG_WRN("Failed to stop broadcaster: %d", ret);
-				// }
-                                audio_system_encoder_stop();
-                                LOG_INF("STATE_PAUSED");
-                                stream_state_set(STATE_PAUSED);
-                                ret = led_on(LED_APP_1_BLUE);
-                                ERR_CHK(ret);
+			if (socket_connected_signall == true) {
+				if (strm_state == STATE_STREAMING) {
+					audio_system_encoder_stop();
+					LOG_INF("STATE_PAUSED");
+					stream_state_set(STATE_PAUSED);
+					ret = led_on(LED_APP_1_BLUE);
+					ERR_CHK(ret);
 
-			} else if (strm_state == STATE_PAUSED) {
-				// ret = broadcast_source_start(0, ext_adv);
-				// if (ret) {
-				// 	LOG_WRN("Failed to start broadcaster: %d", ret);
-				// }
-                               
-                                LOG_INF("STATE_STREAMING");
-                                stream_state_set(STATE_STREAMING);
-                                audio_system_encoder_start();
-                                ret = led_blink(LED_APP_1_BLUE);
-                                ERR_CHK(ret);
+				} else if (strm_state == STATE_PAUSED) {
+					LOG_INF("STATE_STREAMING");
+					stream_state_set(STATE_STREAMING);
+					audio_system_encoder_start();
+					ret = led_blink(LED_APP_1_BLUE);
+					ERR_CHK(ret);
 
+				} else {
+					LOG_WRN("In invalid state: %d", strm_state);
+				}
 			} else {
-				LOG_WRN("In invalid state: %d", strm_state);
+				LOG_WRN("Please wait for socket client to connect.");
 			}
-
 			break;
-
 		case BUTTON_4:
 			if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
 				if (strm_state != STATE_STREAMING) {
@@ -348,9 +328,8 @@ static int zbus_subscribers_create(void)
 		return ret;
 	}
 
-	// ret = zbus_chan_add_obs(&sdu_ref_chan, &sdu_ref_msg_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add timestamp listener");
+	// ret = zbus_chan_add_obs(&sdu_ref_chan, &sdu_ref_msg_listen,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add timestamp listener");
 	// 	return ret;
 	// }
 
@@ -376,15 +355,13 @@ static int zbus_link_producers_observers(void)
 		return ret;
 	}
 
-	// ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add le_audio sub");
+	// ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add le_audio sub");
 	// 	return ret;
 	// }
 
-	// ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	// if (ret) {
-	// 	LOG_ERR("Failed to add bt_mgmt listener");
+	// ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen,
+	// ZBUS_ADD_OBS_TIMEOUT_MS); if (ret) { 	LOG_ERR("Failed to add bt_mgmt listener");
 	// 	return ret;
 	// }
 
@@ -395,59 +372,57 @@ K_THREAD_STACK_DEFINE(socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE);
 static struct k_thread socket_util_thread_data;
 static k_tid_t socket_util_thread_id;
 
-int socket_util_init(void){
-        int ret;
-        /* Start thread to handle events from socket connection */
-        socket_util_thread_id = k_thread_create(&socket_util_thread_data, socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE, (k_thread_entry_t)socket_util_thread,  NULL, NULL, NULL, K_PRIO_PREEMPT(CONFIG_SOCKET_UTIL_THREAD_PRIO), 0, K_NO_WAIT);
-        ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
-        socket_util_set_rx_callback(socket_rx_handler);
+int socket_util_init(void)
+{
+	int ret;
+	/* Start thread to handle events from socket connection */
+	socket_util_thread_id = k_thread_create(
+		&socket_util_thread_data, socket_util_thread_stack, CONFIG_SOCKET_STACK_SIZE,
+		(k_thread_entry_t)socket_util_thread, NULL, NULL, NULL,
+		K_PRIO_PREEMPT(CONFIG_SOCKET_UTIL_THREAD_PRIO), 0, K_NO_WAIT);
+	ret = k_thread_name_set(socket_util_thread_id, "SOCKET");
+	socket_util_set_rx_callback(socket_rx_handler);
 	return ret;
 }
 
-
-
 int main(void)
 {
-        int ret;
-        LOG_INF("WiFi Audio Transceiver Start!");
+	int ret;
+	LOG_INF("WiFi Audio Transceiver Start!");
 
-        #ifdef HEAP_LISTENER
-        #if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC)
+#ifdef CONFIG_SYS_HEAP_LISTENER
 
-                // heap_listener_register(&sys_heap_listener_alloc);
-                // heap_listener_register(&sys_heap_listener_free);
-                // heap_listener_register(&stdlibc_heap_listener_alloc);
-                // heap_listener_register(&stdlibc_heap_listener_free);
+	heap_listener_register(&system_heap_listener_alloc);
+	heap_listener_register(&system_heap_listener_free);
 
-        #endif /* CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC */
+#endif /* #ifdef HEAP_LISTENER */
 
-        #endif /* #ifdef HEAP_LISTENER */
-        ret = nrf5340_audio_dk_init();
+	ret = nrf5340_audio_dk_init();
 	ERR_CHK(ret);
 
 	ret = fw_info_app_print();
 	ERR_CHK(ret);
 
-        LOG_INF("socket_util_init");
+	LOG_INF("socket_util_init");
 	ret = socket_util_init();
 	ERR_CHK(ret);
 
-        LOG_INF("audio_system_init"); 
+	LOG_INF("audio_system_init");
 	ret = audio_system_init();
 	ERR_CHK(ret);
 
-        ret = audio_system_config_set(48000, 16000, 0);
+	ret = audio_system_config_set(48000, 16000, 0);
 	ERR_CHK_MSG(ret, "Failed to set sample and bitrate for encoder");
 
-        audio_system_start();
+	audio_system_start();
 
-        LOG_INF("zbus_subscribers_create"); 
-        ret = zbus_subscribers_create();
+	LOG_INF("zbus_subscribers_create");
+	ret = zbus_subscribers_create();
 	ERR_CHK_MSG(ret, "Failed to create zbus subscriber threads");
 
-        LOG_INF("zbus_link_producers_observers"); 
+	LOG_INF("zbus_link_producers_observers");
 	ret = zbus_link_producers_observers();
 	ERR_CHK_MSG(ret, "Failed to link zbus producers and observers");
 
-        return 0;
+	return 0;
 }
