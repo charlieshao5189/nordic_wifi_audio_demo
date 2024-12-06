@@ -1,6 +1,6 @@
-# wifi_audio_simple_sample
+# wifi_opus_audio_demo
 
-A simple sample to demo Wi-Fi and UDP/TCP scoket connection for audio through Wi-Fi usage.
+This project demonstrates how to use Wi-Fi with UDP/TCP sockets for real-time audio streaming. It is designed to showcase low-latency audio transfer, utilizing the nRF5340 Audio DK and nRF7002 EK platforms. This sample also integrates the Opus codec for efficient audio compression and decompression, offering flexibility for various network conditions.
 
 # Requirements:
 
@@ -13,6 +13,18 @@ HW:
 SW: 
 - NCS v2.8.0
 - Opus v1.5.2
+
+
+# Opus Codec Configuration
+
+| **Parameter**       | **Description**                                    | **Default Value**      | **Notes**                                                   |
+|---------------------|----------------------------------------------------|-------------------------|------------------------------------------------------------|
+| `Bitrate`           | Controls the quality and bandwidth usage.          | 6kbps upto 320kbps       | Higher bitrate improves quality but increases CPU usage and frame encoding time.    |
+| `Frame Size`        | Duration of each audio frame in milliseconds.      | 10ms                     | Smaller frames reduce latency but increase overhead.        |
+| `Complexity`        | Encoding complexity level (0-10).                  | 0                        | Lower values reduce CPU usage; higher values improve quality. |
+| `Application`       | Optimization mode (VoIP, Audio, or Automatic).     | `OPUS_APPLICATION_AUDIO` | Choose based on use case (e.g., VoIP for voice).            |
+| `Packet Loss (%)`   | Expected network packet loss rate.                 | 15%                      | Enables PLC (Packet Loss Concealment) to improve stability. |
+| `VBR`               | Variable Bitrate mode (enabled/disabled).          | Dieabled                 | Dynamically adjusts bitrate for better network adaptation.  |
 
 # Repository Setup
 
@@ -32,7 +44,6 @@ Gateway:
 
 ```bash
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_gateway --sysbuild -- -DSHIELD="nrf7002ek" -DEXTRA_CONF_FILE="overlay-audio-gateway.conf"
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_gateway --sysbuild -- -DSHIELD="nrf7002ek" -DEXTRA_CONF_FILE="overlay-audio-gateway.conf"
 west flash --erase -d build_gateway
 ```
 
@@ -40,7 +51,6 @@ Headset:
 
 ```bash
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-audio-headset.conf"
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-audio-headset.conf"
 west flash --erase -d build_headset
 ```
 
@@ -49,22 +59,18 @@ Gateway:
 
 ```bash
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-gateway.conf"
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-gateway.conf"
 west flash --erase -d build_static_gateway
 
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf;overlay-audio-gateway.conf"
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_gateway --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-opus.conf;overlay-audio-gateway.conf"
 west flash --erase -d build_static_opus_gateway
 ```
 Headset:
 
 ```bash
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf"
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf"
 west flash --erase -d build_static_headset
 
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf;overlay-opus.conf"
-west build    -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-wifi-sta-static.conf;overlay-audio-headset.conf;overlay-opus.conf"
 west flash --erase -d build_static_opus_headset
 ```
 
@@ -119,7 +125,7 @@ After socket connection is established. Make sure your host pc choose nRF5340 US
 
 
 # DebuggingTips:
-1. Fix building warnning "Setting build type to 'MinSizeRel' as none was specified.": https://github.com/zephyrproject-rtos/zephyr/issues/79070.
+1. Fix building warnning "Setting build type to 'MinSizeRel' as none was specified.": https://github.com/zephyrproject-rtos/picolibc/pull/7/files.
 2. Command to debug hard fault:
         - /opt/nordic/ncs/toolchains/f8037e9b83/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-addr2line -e /opt/nordic/ncs/myapps/nordic_wifi_audio_demo/wifi_audio/build_static_headset/wifi_audio/zephyr/zephyr.elf 0x00094eae
         - C:\nordic\toolchains\2d382dcd92\opt\zephyr-sdk\arm-zephyr-eabi\bin\arm-zephyr-eabi-addr2line.exe -e C:\nordic\myApps\nordic_wifi_audio_demo\wifi_audio\build_static_gateway\wifi_audio\zephyr\zephyr.elf 0x0002fdfb
