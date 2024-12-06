@@ -19,12 +19,11 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_SOCKET_UTIL_MODULE_LOG_LEVEL);
 #include <zephyr/shell/shell.h>
 #include "socket_util.h"
 
-
 #include <zephyr/net/dns_resolve.h>
 
-#define FATAL_ERROR()                              \
-	LOG_ERR("Fatal error! Rebooting the device."); \
-	LOG_PANIC();                                   \
+#define FATAL_ERROR()                                                                              \
+	LOG_ERR("Fatal error! Rebooting the device.");                                             \
+	LOG_PANIC();                                                                               \
 	IF_ENABLED(CONFIG_REBOOT, (sys_reboot(0)))
 
 /* size of stack area used by each thread */
@@ -131,26 +130,24 @@ int socket_util_tx_data(uint8_t *data, size_t length)
 }
 
 #ifdef CONFIG_MDNS_RESOLVER
-int do_mdns_query(void){
+int do_mdns_query(void)
+{
 	struct addrinfo *result;
 	struct addrinfo *addr;
-	struct addrinfo hints = {
-		.ai_socktype = SOCK_STREAM,
-		.ai_family = AF_INET
-	};
+	struct addrinfo hints = {.ai_socktype = SOCK_STREAM, .ai_family = AF_INET};
 
 	char addr_str[NET_IPV6_ADDR_LEN];
 
 	int err;
-	for(int i = 0; i < CONFIG_MDNS_QUERY_ATTEMPTS; i++){
+	for (int i = 0; i < CONFIG_MDNS_QUERY_ATTEMPTS; i++) {
 		err = getaddrinfo(CONFIG_MDNS_QUERY_NAME, NULL, &hints, &result);
-		if(!err){
+		if (!err) {
 			LOG_INF("Got address at attempt %d", i);
 			break;
 		}
 		LOG_DBG("Failed to get address at attempt %d, error %d", i, err);
 	}
-	if(err){
+	if (err) {
 		LOG_ERR("getaddrinfo() failed, error %d", err);
 		return err;
 	}
@@ -162,16 +159,17 @@ int do_mdns_query(void){
 			inet_ntop(AF_INET, &addr4->sin_addr, addr_str, sizeof(addr_str));
 			// LOG_INF("IPv4 address: %s", addr_str);
 
-                        target_addr.sin_family = AF_INET;
-                        target_addr.sin_port = htons(socket_port); // Convert port to network byte order
-                        target_addr.sin_addr = addr4->sin_addr;
+			target_addr.sin_family = AF_INET;
+			target_addr.sin_port =
+				htons(socket_port); // Convert port to network byte order
+			target_addr.sin_addr = addr4->sin_addr;
 
-                        if(target_addr.sin_addr.s_addr == 0){
-                                LOG_ERR("Invalid IP address");
-                                continue;
-                        }
-                        LOG_INF("Target address set to: %s:%d", addr_str, socket_port);
-                        serveraddr_set_signall = true;
+			if (target_addr.sin_addr.s_addr == 0) {
+				LOG_ERR("Invalid IP address");
+				continue;
+			}
+			LOG_INF("Target address set to: %s:%d", addr_str, socket_port);
+			serveraddr_set_signall = true;
 
 		} else if (addr->ai_family == AF_INET6) {
 			struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)addr->ai_addr;
@@ -180,7 +178,7 @@ int do_mdns_query(void){
 			LOG_INF("IPv6 address: %s", addr_str);
 		}
 	}
-        return 0;
+	return 0;
 }
 #endif /* CONFIG_MDNS_RESOLVER */
 
@@ -212,25 +210,26 @@ void socket_util_thread(void)
 	target_addr.sin_family = AF_INET;
 
 #if defined(CONFIG_SOCKET_ROLE_CLIENT)
-	// LOG_INF("\r\n\r\nDevice works as socket client, connect target socket server address with "
-	// 	"shell command, for example:\r\nsocket set_target_addr 192.168.50.126:60010\r\n");
+	// LOG_INF("\r\n\r\nDevice works as socket client, connect target socket server address with
+	// " 	"shell command, for example:\r\nsocket set_target_addr 192.168.50.126:60010\r\n");
 
-                #ifdef CONFIG_MDNS_RESOLVER
-                        ret = do_mdns_query();
-                #else
-                        ret = -1;
-                #endif /* CONFIG_MDNS_RESOLVER */
+#ifdef CONFIG_MDNS_RESOLVER
+	ret = do_mdns_query();
+#else
+	ret = -1;
+#endif /* CONFIG_MDNS_RESOLVER */
 
-                if(ret < 0){
-                        LOG_INF("\r\n\r\n"
-                        "Target address could not be resolved, please set it manually with shell command\r\n"
-                        "for example:\t socket set_target_addr 192.168.50.126:60010\r\n");
-                }
+	if (ret < 0) {
+		LOG_INF("\r\n\r\n"
+			"Target address could not be resolved, please set it manually with shell "
+			"command\r\n"
+			"for example:\t socket set_target_addr 192.168.50.126:60010\r\n");
+	}
 
 	while (!serveraddr_set_signall) {
 		k_sleep(K_MSEC(100));
 	}
-        LOG_INF("\r\n\r\nTarget address is set. Press play button to start audio transmission\r\n");
+	LOG_INF("\r\n\r\nTarget address is set. Press play button to start audio transmission\r\n");
 #elif defined(CONFIG_SOCKET_ROLE_SERVER)
 	LOG_INF("\r\n\r\nDevice works as socket server, wait for socket client connection...\r\n");
 #endif // #if defined(CONFIG_SOCKET_ROLE_CLIENT)

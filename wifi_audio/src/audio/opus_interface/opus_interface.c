@@ -147,11 +147,10 @@ Opus_Status ENC_Opus_Init(ENC_Opus_ConfigTypeDef *ENC_configOpus, int *opus_err)
 		return OPUS_ERROR;
 	}
 
-	//   status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_PACKET_LOSS_PERC(CONFIG_LOSS_PERC));
-	//   if (status != OPUS_SUCCESS)
-	//   {
-	//         return OPUS_ERROR;
-	//   }
+	status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_PACKET_LOSS_PERC(15));
+	if (status != OPUS_SUCCESS) {
+		return OPUS_ERROR;
+	}
 
 	status = opus_encoder_ctl(hOpus.Encoder, OPUS_SET_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
 	if (status != OPUS_SUCCESS) {
