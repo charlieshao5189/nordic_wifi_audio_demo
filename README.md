@@ -30,7 +30,7 @@ SW:
 
 ```bash
 git clone https://github.com/charlieshao5189/nordic_wifi_audio_demo.git
-cd wifi_audio/src/audio/opus
+cd nordic_wifi_audio_demo/wifi_audio/src/audio/opus
 git submodule update --init
 git checkout v1.5.2
 ```
@@ -45,6 +45,9 @@ Gateway:
 ```bash
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_gateway --sysbuild -- -DSHIELD="nrf7002ek" -DEXTRA_CONF_FILE="overlay-audio-gateway.conf"
 west flash --erase -d build_gateway
+
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_opus_gateway --sysbuild -- -DSHIELD="nrf7002ek" -DEXTRA_CONF_FILE="overlay-opus.conf;overlay-audio-gateway.conf"
+west flash --erase -d build_opus_gateway
 ```
 
 Headset:
@@ -52,6 +55,9 @@ Headset:
 ```bash
 west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-audio-headset.conf"
 west flash --erase -d build_headset
+
+west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_opus_headset --sysbuild -- -DSHIELD="nrf7002ek"  -DEXTRA_CONF_FILE="overlay-opus.conf;overlay-audio-headset.conf"
+west flash --erase -d build_opus_headset
 ```
 
 ## WiFi Station Mode + Static SSID & PASSWORD + UDP
@@ -86,6 +92,8 @@ west build -p -b nrf5340_audio_dk/nrf5340/cpuapp -d build_static_opus_tcp_headse
 # Running Guide
 WiFi CREDENTIALS SHELL example:
 
+### 1) Connect WiFi gateway and Audio devcies with WiFi router
+
 ```
 uart:~$ wifi_cred
 wifi_cred - Wi-Fi Credentials commands
@@ -118,8 +126,9 @@ uart:~$ wifi_cred add -s wifi_ssid -p wifi_password -k 1
 uart:~$ wifi_cred auto_connect
 ```
 The device will remember this set of credential and autoconnect to target router after reset.
+Headset device will find Gateway device automatically through mDNS in the same network.
 
-The headset device works as socket client, need to know socket server address on audio gateway device before build socket connection. The command to set socket server address on headset device is  `socket set_target_addr <ip_address>:<port>`, for example `socket set_target_addr 192.168.50.10:60010`. The server address can be found in the terminal log of gateway device.
+### 2) Set audio gateway as output on PC and start audio streaming
 
 After socket connection is established. Make sure your host pc choose nRF5340 USB Audio(audio gateway) as audio output device, then you can press play/pause on headset device to start/stop audio streaming. The VOL+/- buttons can be used to adjust volume.
 
@@ -127,5 +136,5 @@ After socket connection is established. Make sure your host pc choose nRF5340 US
 # DebuggingTips:
 1. Fix building warnning "Setting build type to 'MinSizeRel' as none was specified.": https://github.com/zephyrproject-rtos/picolibc/pull/7/files.
 2. Command to debug hard fault:
-        - /opt/nordic/ncs/toolchains/f8037e9b83/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-addr2line -e /opt/nordic/ncs/myapps/nordic_wifi_audio_demo/wifi_audio/build_static_headset/wifi_audio/zephyr/zephyr.elf 0x00094eae
-        - C:\nordic\toolchains\2d382dcd92\opt\zephyr-sdk\arm-zephyr-eabi\bin\arm-zephyr-eabi-addr2line.exe -e C:\nordic\myApps\nordic_wifi_audio_demo\wifi_audio\build_static_gateway\wifi_audio\zephyr\zephyr.elf 0x0002fdfb
+        - Linux:  /opt/nordic/ncs/toolchains/f8037e9b83/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-addr2line -e /opt/nordic/ncs/myapps/nordic_wifi_audio_demo/wifi_audio/build_static_headset/wifi_audio/zephyr/zephyr.elf 0x00094eae
+        - Windows: C:\nordic\toolchains\2d382dcd92\opt\zephyr-sdk\arm-zephyr-eabi\bin\arm-zephyr-eabi-addr2line.exe -e C:\nordic\myApps\nordic_wifi_audio_demo\wifi_audio\build_static_gateway\wifi_audio\zephyr\zephyr.elf 0x0002fdfb
